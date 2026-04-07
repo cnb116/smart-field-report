@@ -218,8 +218,18 @@ const App = () => {
       }
     } catch (e) {
       console.error("Webhook Error Details:", e.response?.data || e.message || e);
-      const ServerMsg = e.response ? `(서버: ${e.response.status})` : '';
-      showError(`전송 중 오류가 발생했습니더. ${ServerMsg} 다시 시도하이소.`);
+      const serverStatus = e.response ? e.response.status : '네트워크 끊김 또는 CORS';
+      const errorData = e.response?.data ? (typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data)) : e.message;
+      
+      const errorText = `🚨 Make.com 전송 실패 🚨
+
+상태 코드: ${serverStatus}
+상세 에러: ${errorData}
+
+* 브라우저 콘솔(F12)을 확인하시거나, Make.com 시나리오의 붉은색 에러 로그(History)를 점검해주세요. 특히 구글 시트 모듈 등에서 변수 매핑 문제가 없는지 확인 바랍니다.`;
+
+      setReportContent(errorText);
+      setShowAIPanel(true);
     } finally {
       setIsSending(false);
     }
