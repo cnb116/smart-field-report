@@ -21,6 +21,7 @@ const App = () => {
   const [currentDate, setCurrentDate] = useState('');
   const [lastAIAnalysis, setLastAIAnalysis] = useState('');
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [reportContent, setReportContent] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   // 음성 인식 관련 (Web Speech API)
@@ -34,7 +35,10 @@ const App = () => {
   // [정식 결재판] AI 결과 겐타 (JSON 형식 데이터 추출)
   const turboProcessAI = async (text) => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    if (!apiKey) return null;
+    if (!apiKey) {
+      console.error("🚨 VITE_GEMINI_API_KEY가 설정되지 않았습니다! .env 파일이나 Vercel 환경 변수를 확인해주세요.");
+      return null;
+    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
@@ -159,39 +163,44 @@ const App = () => {
     setIsSending(true);
 
     try {
-      // 1. AI 분석 (리스트 겐타)
-      const aiResult = await turboProcessAI(memoText);
-      setLastAIAnalysis(aiResult);
-
-      // 2. 데이터 시트 전송 (Make Webhook - 항목별 배선 연결)
-      const webhookUrl = import.meta.env.VITE_MAKE_MEMO_WEBHOOK_URL;
+      // 1. 데이터 시트 전송 (Make Webhook - 원본 데이터 직접 발송)
+      const webhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL;
+      if (!webhookUrl) {
+        console.error("🚨 VITE_MAKE_REPORT_WEBHOOK_URL이 설정되지 않았습니다!");
+      }
       
       const payload = {
         id: Date.now(),
-        날짜: aiResult?.날짜 || new Date().toLocaleDateString('ko-KR'),
-        공종: aiResult?.공종 || '미분류',
-        인원: aiResult?.인원 || '없음',
-        특이사항: aiResult?.특이사항 || '이상 없음',
-        raw_content: memoText,      // B열 매핑용 (원본 입고)
+        raw_content: memoText,      // 원본 음성/텍스트 입고
         timestamp: new Date().toISOString(),
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       };
 
       console.log("🚀 구글 시트 배선 전송 시작:", payload);
 
+      let finalReportData = null;
+
       if (webhookUrl) {
-        // [배선 수리] 전송 성공 시에만 다음 단계로 (Timeout 15초 확보)
         const response = await axios.post(webhookUrl, payload, { 
           timeout: 15000,
           headers: { 'Content-Type': 'application/json' }
         });
         console.log("✅ 구글 시트 배선 전송 성공:", response.data);
+        
+        // Make.com 응답 안의 result 반영 (없으면 전체 반영)
+        if (response.data && response.data.result) {
+          finalReportData = response.data.result;
+        } else if (response.data) {
+          finalReportData = response.data;
+        }
       }
+
+      setReportContent(finalReportData);
 
       const newMemo = {
         id: Date.now(),
         text: memoText,
-        ai_analysis: aiResult,
+        make_response: finalReportData,
         time: payload.time
       };
 
@@ -216,13 +225,46 @@ const App = () => {
   };
 
   const renderReportTable = (aiData) => {
-    if (!aiData || typeof aiData !== 'object') return null;
+    if (!aiData) return null;
+
+    // 만약 데이터가 객체인데 특정 키(날짜)가 없다면 문자열로 변환 (Make.com Raw 응답 대비)
+    let displayData = aiData;
+    if (typeof displayData === 'object' && !displayData.날짜 && !displayData.공종) {
+      displayData = displayData.text || displayData.content || JSON.stringify(displayData, null, 2);
+    }
+
+    if (typeof displayData === 'string') {
+      return (
+        <div className="report-paper-container">
+          <div className="report-paper-header">
+            <div className="report-no">No. {new Date().toISOString().slice(0, 10)}-01</div>
+            <div className="report-stamp-area">
+              <div className="stamp-box">
+                <span className="stamp-label">확인</span>
+                <div className="stamp-circle">承 認</div>
+              </div>
+            </div>
+          </div>
+          <h1 className="report-main-title">현 장 공 정 일 보</h1>
+          <div style={{ padding: '20px', whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '1.1rem', textAlign: 'left', fontWeight: '500', color: '#333' }}>
+            {displayData}
+          </div>
+          <div className="report-footer-sign">
+            <p>위와 같이 오늘의 공정 내용을 보고함.</p>
+            <p className="footer-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            <p className="footer-rep">현장대리인 귀하</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (typeof displayData !== 'object') return null;
 
     const entries = [
-      { key: '날짜', val: aiData.날짜 },
-      { key: '공종', val: aiData.공종 },
-      { key: '인원', val: aiData.인원 },
-      { key: '특이사항', val: aiData.특이사항 }
+      { key: '날짜', val: displayData.날짜 },
+      { key: '공종', val: displayData.공종 },
+      { key: '인원', val: displayData.인원 },
+      { key: '특이사항', val: displayData.특이사항 }
     ];
 
     return (
@@ -297,7 +339,7 @@ const App = () => {
 
       {/* ── 팝업 겐타 (정식 결재판 모달) ── */}
       <AnimatePresence>
-        {showAIPanel && lastAIAnalysis && (
+        {showAIPanel && reportContent && (
           <motion.div 
             className="modal-overlay" 
             initial={{ opacity: 0 }} 
@@ -313,7 +355,7 @@ const App = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="report-body-paper">
-                {renderReportTable(lastAIAnalysis)}
+                {renderReportTable(reportContent)}
               </div>
 
               <button className="btn-confirm-safety-full" onClick={() => setShowAIPanel(false)}>
