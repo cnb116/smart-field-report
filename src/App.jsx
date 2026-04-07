@@ -182,7 +182,7 @@ const App = () => {
 
       if (webhookUrl) {
         const response = await axios.post(webhookUrl, payload, { 
-          timeout: 15000,
+          timeout: 40000,
           headers: { 'Content-Type': 'application/json' }
         });
         console.log("✅ 구글 시트 배선 전송 성공:", response.data);
@@ -217,8 +217,9 @@ const App = () => {
         window.Kimbanjang.postMessage('care_alert');
       }
     } catch (e) {
-      console.error(e);
-      showError('전송 중 오류가 발생했습니더. 다시 시도하이소.');
+      console.error("Webhook Error Details:", e.response?.data || e.message || e);
+      const ServerMsg = e.response ? `(서버: ${e.response.status})` : '';
+      showError(`전송 중 오류가 발생했습니더. ${ServerMsg} 다시 시도하이소.`);
     } finally {
       setIsSending(false);
     }
