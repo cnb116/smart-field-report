@@ -252,10 +252,16 @@ const App = () => {
     }
   };
 
+  // 잡내(URL, 마크다운 별표 등) 제거용 헬퍼 함수
+  const cleanAiText = (val) => {
+    if (typeof val !== 'string') return val;
+    return val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
+  };
+
   const formatReportContentForCopy = (data) => {
     if (!data) return '';
-    if (typeof data === 'string') return data;
-    return `[현 장 공 정 일 보]\n날짜: ${data.날짜 || ''}\n공종: ${data.공종 || ''}\n인원: ${data.인원 || ''}\n특이사항: ${data.특이사항 || ''}`;
+    if (typeof data === 'string') return cleanAiText(data);
+    return `[현 장 공 정 일 보]\n날짜: ${cleanAiText(data.날짜) || ''}\n공종: ${cleanAiText(data.공종) || ''}\n인원: ${cleanAiText(data.인원) || ''}\n특이사항: ${cleanAiText(data.특이사항) || ''}`;
   };
 
   const handleCopy = async () => {
@@ -297,7 +303,7 @@ const App = () => {
     if (typeof displayData === 'string') {
       return (
         <div style={{ padding: '10px', fontSize: '1.8rem', fontWeight: '900', color: '#000', lineHeight: '1.5', wordBreak: 'keep-all', textAlign: 'left', whiteSpace: 'pre-wrap' }}>
-          {displayData}
+          {cleanAiText(displayData)}
         </div>
       );
     }
@@ -305,10 +311,10 @@ const App = () => {
     if (typeof displayData !== 'object') return null;
 
     const entries = [
-      { key: '날짜', val: displayData.날짜 },
-      { key: '공종', val: displayData.공종 },
-      { key: '인원', val: displayData.인원 },
-      { key: '특이사항', val: displayData.특이사항 }
+      { key: '날짜', val: cleanAiText(displayData.날짜) },
+      { key: '공종', val: cleanAiText(displayData.공종) },
+      { key: '인원', val: cleanAiText(displayData.인원) },
+      { key: '특이사항', val: cleanAiText(displayData.특이사항) }
     ];
 
     return (
