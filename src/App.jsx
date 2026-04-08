@@ -289,10 +289,6 @@ const App = () => {
   const renderReportTable = (aiData) => {
     if (!aiData) return null;
 
-    // 한국 시간 기준 YYYY-MM-DD 변환 (UTC 이슈로 '어제'로 나오는 문제 해결)
-    const todayLocalStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
-
-    // 만약 데이터가 객체인데 특정 키(날짜)가 없다면 문자열로 변환 (Make.com Raw 응답 대비)
     let displayData = aiData;
     if (typeof displayData === 'object' && !displayData.날짜 && !displayData.공종) {
       displayData = displayData.text || displayData.content || JSON.stringify(displayData, null, 2);
@@ -300,25 +296,8 @@ const App = () => {
 
     if (typeof displayData === 'string') {
       return (
-        <div className="report-paper-container">
-          <div className="report-paper-header">
-            <div className="report-no">No. {todayLocalStr}-01</div>
-            <div className="report-stamp-area">
-              <div className="stamp-box">
-                <span className="stamp-label">확인</span>
-                <div className="stamp-circle">承 認</div>
-              </div>
-            </div>
-          </div>
-          <h1 className="report-main-title">현 장 공 정 일 보</h1>
-          <div style={{ padding: '20px', whiteSpace: 'pre-wrap', lineHeight: '1.6', fontSize: '1.1rem', textAlign: 'left', fontWeight: '500', color: '#333' }}>
-            {displayData}
-          </div>
-          <div className="report-footer-sign">
-            <p>위와 같이 오늘의 공정 내용을 보고함.</p>
-            <p className="footer-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-            <p className="footer-rep">현장대리인 귀하</p>
-          </div>
+        <div style={{ padding: '10px', fontSize: '1.8rem', fontWeight: '900', color: '#000', lineHeight: '1.5', wordBreak: 'keep-all', textAlign: 'left', whiteSpace: 'pre-wrap' }}>
+          {displayData}
         </div>
       );
     }
@@ -333,44 +312,18 @@ const App = () => {
     ];
 
     return (
-      <div className="report-paper-container">
-        <div className="report-paper-header">
-          <div className="report-no">No. {todayLocalStr}-01</div>
-          <div className="report-stamp-area">
-            <div className="stamp-box">
-              <span className="stamp-label">확인</span>
-              <div className="stamp-circle">承 認</div>
+      <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '25px' }}>
+        {entries.map((row, idx) => {
+          if (!row.val) return null;
+          return (
+            <div key={idx} style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '1.2rem', color: '#007AFF', fontWeight: 'bold', marginBottom: '8px' }}>[{row.key}]</div>
+              <div style={{ fontSize: '2.0rem', fontWeight: '900', color: '#000', lineHeight: '1.4', wordBreak: 'keep-all', letterSpacing: '-0.5px' }}>
+                {row.val}
+              </div>
             </div>
-          </div>
-        </div>
-        
-        <h1 className="report-main-title">현 장 공 정 일 보</h1>
-        
-        <table className="report-grid-table">
-          <tbody>
-            {entries.map((row, idx) => {
-              // 날짜와 공종(공정 내용)인 경우에만 폰트를 더 크고 굵게 강조
-              const isHighlight = row.key === '날짜' || row.key === '공종';
-              return (
-                <tr key={idx}>
-                  <th className="grid-th">{row.key}</th>
-                  <td 
-                    className="grid-td" 
-                    style={isHighlight ? { fontWeight: '900', fontSize: '1.3rem', color: '#000', letterSpacing: '-0.5px' } : {}}
-                  >
-                    {row.val}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-
-        <div className="report-footer-sign">
-          <p>위와 같이 오늘의 공정 내용을 보고함.</p>
-          <p className="footer-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-          <p className="footer-rep">현장대리인 귀하</p>
-        </div>
+          );
+        })}
       </div>
     );
   };
@@ -422,34 +375,33 @@ const App = () => {
             onClick={() => setShowAIPanel(false)}
           >
             <motion.div 
-              className="modal-content report-paper-modal"
+              className="modal-content"
+              style={{ background: '#fff', padding: '30px 20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '85vh', overflowY: 'auto', position: 'relative' }}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="report-body-paper">
+              {/* 우측 상단 닫기 X 아이콘 */}
+              <button 
+                onClick={() => setShowAIPanel(false)}
+                style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: '#ccc', cursor: 'pointer' }}
+              >
+                <X size={32} />
+              </button>
+
+              <div style={{ marginTop: '20px' }}>
                 {renderReportTable(reportContent)}
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+              <div style={{ marginTop: '30px' }}>
                 <button 
-                  style={{ flex: 1, padding: '15px', borderRadius: '12px', background: '#333', color: '#fff', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }} 
+                  style={{ width: '100%', padding: '20px', borderRadius: '15px', background: '#FF5A00', color: '#fff', fontSize: '1.8rem', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 8px 20px rgba(255, 90, 0, 0.3)' }} 
                   onClick={handleCopy}
                 >
-                  복사하기
-                </button>
-                <button 
-                  style={{ flex: 1, padding: '15px', borderRadius: '12px', background: '#007AFF', color: '#fff', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }} 
-                  onClick={handleShare}
-                >
-                  공유하기
+                  내용 복사하기
                 </button>
               </div>
-
-              <button className="btn-confirm-safety-full" style={{ marginTop: '10px' }} onClick={() => setShowAIPanel(false)}>
-                단디 확인! (현장 복귀)
-              </button>
             </motion.div>
           </motion.div>
         )}
