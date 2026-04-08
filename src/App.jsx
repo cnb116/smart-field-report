@@ -207,6 +207,23 @@ const App = () => {
       const updatedMemos = [newMemo, ...memos];
       setMemos(updatedMemos);
       localStorage.setItem('kimbanjang_memos', JSON.stringify(updatedMemos));
+      
+      // ✅ 나중에 이력을 볼 수 있게 로컬 스토리지에 날짜별로 저장하는 로직 추가
+      try {
+        const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
+        const existingReportsStr = localStorage.getItem('kimbanjang_daily_reports') || '[]';
+        const existingReports = JSON.parse(existingReportsStr);
+        existingReports.push({
+          date: todayStr,
+          timestamp: new Date().toISOString(),
+          originalMemo: memoText,
+          report: finalReportData
+        });
+        localStorage.setItem('kimbanjang_daily_reports', JSON.stringify(existingReports));
+      } catch(err) {
+         console.error('보고서 이력 저장 오류:', err);
+      }
+
       setMemoText('');
 
       // [팝업 겐타] 중앙 분석 결과 모달 띄우기
@@ -235,8 +252,45 @@ const App = () => {
     }
   };
 
+  const formatReportContentForCopy = (data) => {
+    if (!data) return '';
+    if (typeof data === 'string') return data;
+    return `[현 장 공 정 일 보]\n날짜: ${data.날짜 || ''}\n공종: ${data.공종 || ''}\n인원: ${data.인원 || ''}\n특이사항: ${data.특이사항 || ''}`;
+  };
+
+  const handleCopy = async () => {
+    try {
+      const text = formatReportContentForCopy(reportContent);
+      await navigator.clipboard.writeText(text);
+      setErrorMessage('✅ 복사 완료!'); // toast ui 활용
+    } catch (err) {
+      console.error('복사 오류:', err);
+      setErrorMessage('❌ 복사에 실패했습니다.');
+    }
+  };
+
+  const handleShare = async () => {
+    try {
+      const text = formatReportContentForCopy(reportContent);
+      if (navigator.share) {
+        await navigator.share({
+          title: '현장 공정 일보',
+          text: text
+        });
+      } else {
+        await navigator.clipboard.writeText(text);
+        setErrorMessage('공유 기능을 지원하지 않는 기기입니다. (자동 복사됨)');
+      }
+    } catch (err) {
+      console.error('공유 중단/오류:', err);
+    }
+  };
+
   const renderReportTable = (aiData) => {
     if (!aiData) return null;
+
+    // 한국 시간 기준 YYYY-MM-DD 변환 (UTC 이슈로 '어제'로 나오는 문제 해결)
+    const todayLocalStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
 
     // 만약 데이터가 객체인데 특정 키(날짜)가 없다면 문자열로 변환 (Make.com Raw 응답 대비)
     let displayData = aiData;
@@ -248,7 +302,7 @@ const App = () => {
       return (
         <div className="report-paper-container">
           <div className="report-paper-header">
-            <div className="report-no">No. {new Date().toISOString().slice(0, 10)}-01</div>
+            <div className="report-no">No. {todayLocalStr}-01</div>
             <div className="report-stamp-area">
               <div className="stamp-box">
                 <span className="stamp-label">확인</span>
@@ -281,7 +335,7 @@ const App = () => {
     return (
       <div className="report-paper-container">
         <div className="report-paper-header">
-          <div className="report-no">No. {new Date().toISOString().slice(0, 10)}-01</div>
+          <div className="report-no">No. {todayLocalStr}-01</div>
           <div className="report-stamp-area">
             <div className="stamp-box">
               <span className="stamp-label">확인</span>
@@ -294,12 +348,21 @@ const App = () => {
         
         <table className="report-grid-table">
           <tbody>
-            {entries.map((row, idx) => (
-              <tr key={idx}>
-                <th className="grid-th">{row.key}</th>
-                <td className="grid-td">{row.val}</td>
-              </tr>
-            ))}
+            {entries.map((row, idx) => {
+              // 날짜와 공종(공정 내용)인 경우에만 폰트를 더 크고 굵게 강조
+              const isHighlight = row.key === '날짜' || row.key === '공종';
+              return (
+                <tr key={idx}>
+                  <th className="grid-th">{row.key}</th>
+                  <td 
+                    className="grid-td" 
+                    style={isHighlight ? { fontWeight: '900', fontSize: '1.3rem', color: '#000', letterSpacing: '-0.5px' } : {}}
+                  >
+                    {row.val}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -369,7 +432,22 @@ const App = () => {
                 {renderReportTable(reportContent)}
               </div>
 
-              <button className="btn-confirm-safety-full" onClick={() => setShowAIPanel(false)}>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '15px' }}>
+                <button 
+                  style={{ flex: 1, padding: '15px', borderRadius: '12px', background: '#333', color: '#fff', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }} 
+                  onClick={handleCopy}
+                >
+                  복사하기
+                </button>
+                <button 
+                  style={{ flex: 1, padding: '15px', borderRadius: '12px', background: '#007AFF', color: '#fff', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }} 
+                  onClick={handleShare}
+                >
+                  공유하기
+                </button>
+              </div>
+
+              <button className="btn-confirm-safety-full" style={{ marginTop: '10px' }} onClick={() => setShowAIPanel(false)}>
                 단디 확인! (현장 복귀)
               </button>
             </motion.div>
