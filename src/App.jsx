@@ -285,15 +285,17 @@ const App = () => {
       cleanedStr = cleanedStr.replace(/^(공정\s*[:：])/gm, '● $1');
       cleanedStr = cleanedStr.replace(/^(안전\s*[:：])/gm, '● $1');
       cleanedStr = cleanedStr.replace(/^(특기\s*[:：])/gm, '● $1');
+      // 제목과 내용을 줄바꿈으로 분리
+      cleanedStr = cleanedStr.replace(/●\s*(공정|안전|특기)\s*[:：]\s*/g, '● $1:\n');
       return cleanedStr;
     }
     
     // 객체 데이터인 경우 우리가 오직 '공정', '안전', '특기' 3가지만 추출 (명시된 ● 말머리 추가)
     // 일자, 구역은 배열에 아예 포함하지 않음.
     const entries = [
-      data.공정 ? `● 공정: ${cleanAiText(String(data.공정))}` : '',
-      data.안전 ? `● 안전: ${cleanAiText(String(data.안전))}` : '',
-      data.특기 ? `● 특기: ${cleanAiText(String(data.특기))}` : ''
+      data.공정 ? `● 공정:\n${cleanAiText(String(data.공정))}` : '',
+      data.안전 ? `● 안전:\n${cleanAiText(String(data.안전))}` : '',
+      data.특기 ? `● 특기:\n${cleanAiText(String(data.특기))}` : ''
     ].filter(Boolean);
     
     // 복사 시에도 줄간 여백을 위해 이중 줄바꿈 처리
@@ -302,7 +304,8 @@ const App = () => {
 
   const handleCopy = async () => {
     try {
-      const text = formatReportContentForCopy(reportContent);
+      // 복사 시에는 맨 윗줄에 일자를 수동으로 포함시킵니다.
+      const text = `일자: ${currentDate}\n\n` + formatReportContentForCopy(reportContent);
       await navigator.clipboard.writeText(text);
       setErrorMessage('✅ 복사 완료!'); // toast ui 활용
     } catch (err) {
@@ -333,24 +336,19 @@ const App = () => {
 
     const formattedText = formatReportContentForCopy(aiData);
     
-    // \n\n 이나 \n● 앞에 분리하여 각 항목(공정, 안전, 특기 등)을 배열로 만듦
-    const lines = formattedText.split(/(?:\n\n+|\n(?=●))/).map(l => l.trim()).filter(Boolean);
+    // 개행 단위로 모든 라인을 개별 분리
+    const lines = formattedText.split('\n').map(l => l.trim()).filter(Boolean);
 
     // 사람, 장비 등 수량형 데이터 하이라이팅 처리
     const highlightNumbers = (text) => {
-      // 숫자 뒤에 단위(명, 인, 대, 개 등 현장 용어)가 붙는 패턴
       const regex = /(\d+(?:\.\d+)?\s*(?:명|인|대|개|팀|건|조|톤|kg|m|cm|mm|식|루베|헤베))/g;
       const parts = text.split(regex);
       return parts.map((part, i) => {
-        // 정규식 캡처 그룹에 의해 분리된 배열에서 홀수 인덱스가 매칭된 수량 패턴입니다.
         if (i % 2 === 1) {
           return (
             <span key={i} style={{ 
               fontWeight: '900', 
-              color: '#d32f2f', // 눈에 띄는 짙은 붉은색
-              background: '#ffebee', // 연한 붉은색 하이라이트 배경
-              padding: '0 4px', 
-              borderRadius: '4px' 
+              color: '#d32f2f' // 두 번째 이미지에 어울리는 강조 붉은색
             }}>
               {part}
             </span>
@@ -362,24 +360,25 @@ const App = () => {
 
     return (
       <div style={{ 
-        background: '#F4F4F4', // 아주 연한 회색 상자 (종이 느낌)
-        padding: '24px', 
-        borderRadius: '12px',
-        border: '1px solid #E2E2E2',
-        fontSize: '2rem',    
-        fontWeight: '500',   // 글자 두께 500으로 하향 조정
+        fontSize: '1.15rem', // image2 디자인과 동일한 비례의 폰트 사이즈
         color: '#111',       
-        lineHeight: '2.0',   
-        letterSpacing: '-0.5px', 
+        lineHeight: '1.6',   
+        letterSpacing: '-0.3px', 
         wordBreak: 'keep-all', 
-        textAlign: 'left', 
-        whiteSpace: 'pre-wrap' 
+        textAlign: 'left'
       }}>
-        {lines.map((line, idx) => (
-          <div key={idx} style={{ marginTop: idx === 0 ? '0' : '28px' }}>
-            {highlightNumbers(line)}
-          </div>
-        ))}
+        {lines.map((line, idx) => {
+          const isHeader = line.startsWith('●');
+          return (
+            <div key={idx} style={{ 
+              marginTop: isHeader && idx !== 0 ? '20px' : '4px',
+              fontWeight: isHeader ? 'bold' : 'normal',
+              paddingLeft: isHeader ? '0' : '10px'
+            }}>
+              {highlightNumbers(line)}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -429,45 +428,74 @@ const App = () => {
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }}
             onClick={() => setShowAIPanel(false)}
+            style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.7)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 9999
+            }}
           >
             <motion.div 
               className="modal-content"
               style={{ 
-                background: '#FDFBF7', // 눈이 편안한 종이 아이보리색
-                padding: '40px 20px 30px', // 여백 넉넉히
-                borderRadius: '12px',      // 종이 결재판 느낌으로 살짝만 둥글게
-                border: '1px solid #EBE5D9', // 은은한 테두리
-                boxShadow: '0 15px 35px rgba(0,0,0,0.15)', // 결재판 그림자
-                width: '95%',              // 한 화면에 많이 담기도록 너비 증가
-                maxWidth: '700px',         // 최대 픽셀폭 여유 있게 확장 (기존 500px -> 700px)
-                maxHeight: '90vh',         // 높이도 더 넉넉히
-                overflowY: 'auto', 
-                position: 'relative' 
+                background: '#F3ECE1', // image2 베이지색 페이퍼 감성
+                borderRadius: '16px',
+                width: '90%', 
+                maxWidth: '430px', 
+                maxHeight: '85vh', 
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
+                overflow: 'hidden'
               }}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 우측 상단 닫기 X 아이콘 */}
-              <button 
-                onClick={() => setShowAIPanel(false)}
-                style={{ position: 'absolute', top: '15px', right: '15px', background: 'transparent', border: 'none', color: '#ccc', cursor: 'pointer' }}
-              >
-                <X size={32} />
-              </button>
-
-              <div style={{ marginTop: '20px' }}>
-                {renderReportTable(reportContent)}
+              {/* 우측 상단 닫기 X 아이콘 및 헤더 (Image 2 스타일) */}
+              <div style={{ background: '#3A3A3A', padding: '16px 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 'bold' }}>현장 보고서</span>
+                <button 
+                  onClick={() => setShowAIPanel(false)}
+                  style={{ position: 'absolute', right: '15px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0', display: 'flex' }}
+                >
+                  <X size={24} />
+                </button>
               </div>
 
-              <div style={{ marginTop: '30px' }}>
-                <button 
-                  style={{ width: '100%', padding: '20px', borderRadius: '15px', background: '#FF5A00', color: '#fff', fontSize: '2.2rem', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 8px 25px rgba(255, 90, 0, 0.4)' }} 
-                  onClick={handleCopy}
-                >
-                  [이 문구 복사하기]
-                </button>
+              {/* 본문 (베이지색 페이퍼 영역) */}
+              <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+                
+                <h2 style={{ fontSize: '1.6rem', fontWeight: '900', color: '#111', margin: '0 0 12px 0' }}>
+                  일자: {currentDate}
+                </h2>
+                <div style={{ borderBottom: '2px solid #222', marginBottom: '20px' }}></div>
+
+                {renderReportTable(reportContent)}
+
+                <div style={{ marginTop: '30px' }}>
+                  <button 
+                    style={{ 
+                      width: '100%', 
+                      padding: '14px', 
+                      borderRadius: '8px', 
+                      background: '#E87A30', 
+                      color: '#fff', 
+                      fontSize: '1.1rem', 
+                      fontWeight: 'bold', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }} 
+                    onClick={handleCopy}
+                  >
+                    📋 복사하기
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
