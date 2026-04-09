@@ -336,6 +336,30 @@ const App = () => {
     // \n\n 이나 \n● 앞에 분리하여 각 항목(공정, 안전, 특기 등)을 배열로 만듦
     const lines = formattedText.split(/(?:\n\n+|\n(?=●))/).map(l => l.trim()).filter(Boolean);
 
+    // 사람, 장비 등 수량형 데이터 하이라이팅 처리
+    const highlightNumbers = (text) => {
+      // 숫자 뒤에 단위(명, 인, 대, 개 등 현장 용어)가 붙는 패턴
+      const regex = /(\d+(?:\.\d+)?\s*(?:명|인|대|개|팀|건|조|톤|kg|m|cm|mm|식|루베|헤베))/g;
+      const parts = text.split(regex);
+      return parts.map((part, i) => {
+        // 정규식 캡처 그룹에 의해 분리된 배열에서 홀수 인덱스가 매칭된 수량 패턴입니다.
+        if (i % 2 === 1) {
+          return (
+            <span key={i} style={{ 
+              fontWeight: '900', 
+              color: '#d32f2f', // 눈에 띄는 짙은 붉은색
+              background: '#ffebee', // 연한 붉은색 하이라이트 배경
+              padding: '0 4px', 
+              borderRadius: '4px' 
+            }}>
+              {part}
+            </span>
+          );
+        }
+        return part;
+      });
+    };
+
     return (
       <div style={{ 
         background: '#F4F4F4', // 아주 연한 회색 상자 (종이 느낌)
@@ -353,7 +377,7 @@ const App = () => {
       }}>
         {lines.map((line, idx) => (
           <div key={idx} style={{ marginTop: idx === 0 ? '0' : '28px' }}>
-            {line}
+            {highlightNumbers(line)}
           </div>
         ))}
       </div>
@@ -414,9 +438,9 @@ const App = () => {
                 borderRadius: '12px',      // 종이 결재판 느낌으로 살짝만 둥글게
                 border: '1px solid #EBE5D9', // 은은한 테두리
                 boxShadow: '0 15px 35px rgba(0,0,0,0.15)', // 결재판 그림자
-                width: '90%', 
-                maxWidth: '500px', 
-                maxHeight: '85vh', 
+                width: '95%',              // 한 화면에 많이 담기도록 너비 증가
+                maxWidth: '700px',         // 최대 픽셀폭 여유 있게 확장 (기존 500px -> 700px)
+                maxHeight: '90vh',         // 높이도 더 넉넉히
                 overflowY: 'auto', 
                 position: 'relative' 
               }}
