@@ -338,11 +338,12 @@ const App = () => {
 
     return (
       <div style={{ 
-        padding: '10px', 
-        fontSize: '1.8rem', 
-        fontWeight: '900', 
-        color: '#000', 
-        lineHeight: '1.6',  // 요청하신 줄 간격 1.6 적용
+        padding: '15px', 
+        fontSize: '2rem',    // 요청하신 글자 크기 상향
+        fontWeight: '900',   // 아주 굵고 진한 글씨
+        color: '#111',       // 진한 검정색 대비
+        lineHeight: '2.0',   // 베껴 쓰기 널널한 줄 간격 적용
+        letterSpacing: '-0.5px', // 글꼴 정갈하게 응집
         wordBreak: 'keep-all', 
         textAlign: 'left', 
         whiteSpace: 'pre-wrap' 
@@ -400,7 +401,18 @@ const App = () => {
           >
             <motion.div 
               className="modal-content"
-              style={{ background: '#fff', padding: '30px 20px', borderRadius: '20px', width: '90%', maxWidth: '500px', maxHeight: '85vh', overflowY: 'auto', position: 'relative' }}
+              style={{ 
+                background: '#FDFBF7', // 눈이 편안한 종이 아이보리색
+                padding: '40px 20px 30px', // 여백 넉넉히
+                borderRadius: '12px',      // 종이 결재판 느낌으로 살짝만 둥글게
+                border: '1px solid #EBE5D9', // 은은한 테두리
+                boxShadow: '0 15px 35px rgba(0,0,0,0.15)', // 결재판 그림자
+                width: '90%', 
+                maxWidth: '500px', 
+                maxHeight: '85vh', 
+                overflowY: 'auto', 
+                position: 'relative' 
+              }}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
