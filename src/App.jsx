@@ -346,10 +346,7 @@ const App = () => {
       return parts.map((part, i) => {
         if (i % 2 === 1) {
           return (
-            <span key={i} style={{ 
-              fontWeight: '900', 
-              color: '#d32f2f' // 두 번째 이미지에 어울리는 강조 붉은색
-            }}>
+            <span key={i} style={{ fontWeight: 'bold' }}>
               {part}
             </span>
           );
@@ -360,9 +357,9 @@ const App = () => {
 
     return (
       <div style={{ 
-        fontSize: '1.15rem', // image2 디자인과 동일한 비례의 폰트 사이즈
+        fontSize: '1.1rem', // 한 줄에 더 많이 들어가도록 크기 줄임
         color: '#111',       
-        lineHeight: '1.6',   
+        lineHeight: '1.7',   // 더 널널한 줄 간격 적용
         letterSpacing: '-0.3px', 
         wordBreak: 'keep-all', 
         textAlign: 'left'
@@ -438,7 +435,7 @@ const App = () => {
             <motion.div 
               className="modal-content"
               style={{ 
-                background: '#F3ECE1', // image2 베이지색 페이퍼 감성
+                background: '#FFFDF0', // 눈이 편안한 아이보리/미색
                 borderRadius: '16px',
                 width: '90%', 
                 maxWidth: '430px', 
@@ -478,11 +475,11 @@ const App = () => {
                   <button 
                     style={{ 
                       width: '100%', 
-                      padding: '14px', 
-                      borderRadius: '8px', 
+                      padding: '18px',     // 더 큼직하게
+                      borderRadius: '14px', // 더 둥글게
                       background: '#E87A30', 
                       color: '#fff', 
-                      fontSize: '1.1rem', 
+                      fontSize: '1.3rem', 
                       fontWeight: 'bold', 
                       border: 'none', 
                       cursor: 'pointer', 
