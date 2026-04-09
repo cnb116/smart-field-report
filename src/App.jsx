@@ -255,25 +255,22 @@ const App = () => {
     }
   };
 
-  // 잡내 및 출력하지 않을 줄(일자, 구역 등) 삭제 헬퍼 함수
+  // 잡내 및 출력하지 않을 줄(일자, 구역 등) 부분 극단적 삭제 헬퍼 함수
   const cleanAiText = (val) => {
     if (typeof val !== 'string') return val;
     
     // 마크다운 별표(**) 제거 및 http/https URL 제거
     let cleaned = val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
 
-    // 제미나이가 보내오는 텍스트 중 '일자:' 혹은 '구역:' 로 시작/포함하는 줄 전체를 정규식으로 삭제
-    cleaned = cleaned.replace(/^.*일자\s*[:：].*$/gm, '');
-    cleaned = cleaned.replace(/^.*구역\s*[:：].*$/gm, '');
+    // '일자', '날짜', '구역' 관련 라인 완전 삭제
+    cleaned = cleaned.replace(/^.*(일자|날짜|구역)\s*[:：\s].*$/gm, '');
 
-    // 혹시라도 내용 중간에 2024년 같은 엉뚱한 날짜가 문장 속에 파고들었을 경우를 대비해 치환(보조)
-    const d = new Date();
-    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // 2024년 등 엉뚱한 날짜가 문장에 섞여 나오면 무조건 지워버림 (공백 치환)
     const dateRegex = /202\d\s*(?:년\s*(?:\d{1,2}\s*월\s*\d{1,2}\s*일?)?|[\-\.]\s*\d{1,2}[\-\.]\s*\d{1,2}[일\.]?)/g;
-    cleaned = cleaned.replace(dateRegex, todayStr);
+    cleaned = cleaned.replace(dateRegex, '');
 
-    // 삭제 후 생긴 불필요한 빈 줄 정리
-    cleaned = cleaned.replace(/\n\s*\n/g, '\n\n').trim();
+    // 삭제 후 생긴 잉여 줄바꿈 정리
+    cleaned = cleaned.replace(/\n\s*\n/g, '\n').trim();
 
     return cleaned;
   };
@@ -299,7 +296,7 @@ const App = () => {
       data.특기 ? `● 특기: ${cleanAiText(String(data.특기))}` : ''
     ].filter(Boolean);
     
-    // 좀 더 넓은 공간감을 위해 항목 간 이중 줄바꿈 처리 (\n\n)
+    // 복사 시에도 줄간 여백을 위해 이중 줄바꿈 처리
     return entries.join('\n\n');
   };
 
@@ -335,20 +332,30 @@ const App = () => {
     if (!aiData) return null;
 
     const formattedText = formatReportContentForCopy(aiData);
+    
+    // \n\n 이나 \n● 앞에 분리하여 각 항목(공정, 안전, 특기 등)을 배열로 만듦
+    const lines = formattedText.split(/(?:\n\n+|\n(?=●))/).map(l => l.trim()).filter(Boolean);
 
     return (
       <div style={{ 
-        padding: '15px', 
-        fontSize: '2rem',    // 요청하신 글자 크기 상향
-        fontWeight: '900',   // 아주 굵고 진한 글씨
-        color: '#111',       // 진한 검정색 대비
-        lineHeight: '2.0',   // 베껴 쓰기 널널한 줄 간격 적용
-        letterSpacing: '-0.5px', // 글꼴 정갈하게 응집
+        background: '#F4F4F4', // 아주 연한 회색 상자 (종이 느낌)
+        padding: '24px', 
+        borderRadius: '12px',
+        border: '1px solid #E2E2E2',
+        fontSize: '2rem',    
+        fontWeight: '500',   // 글자 두께 500으로 하향 조정
+        color: '#111',       
+        lineHeight: '2.0',   
+        letterSpacing: '-0.5px', 
         wordBreak: 'keep-all', 
         textAlign: 'left', 
         whiteSpace: 'pre-wrap' 
       }}>
-        {formattedText}
+        {lines.map((line, idx) => (
+          <div key={idx} style={{ marginTop: idx === 0 ? '0' : '28px' }}>
+            {line}
+          </div>
+        ))}
       </div>
     );
   };
