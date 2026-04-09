@@ -42,19 +42,22 @@ const App = () => {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
-    const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
-    
-    const prompt = `역할: 베테랑 건설 현장 대리인
-미션: 입력된 내용을 바탕으로 공식 '현장 공정 일보'의 4가지 핵심 항목을 정제하십시오.
-지침: 말투는 '~ 완료', '~ 배치', '~ 이상 무' 등 짧고 명확한 현장 용어를 사용하십시오.
+    const prompt = `역할: 대기업 건설 현장 전문 공정 관리관
+미션: 투박한 메모를 [전문가가 작성한 고품격 공정 보고서]로 변환하십시오.
+
+[출력 문체 지침]
+- 절대 별표(**)를 쓰지 마십시오. (필사 방해)
+- "~함", "~완료", "~확인됨" 등으로 끝나는 전문적인 군더더기 없는 문체 사용.
+- 웹주소(URL)는 절대로 결과물에 포함하지 마십시오.
 
 출력 형식: 반드시 아래와 같은 JSON 구조로만 출력하십시오. 코드 블록(\`\`\`) 없이 순수 JSON 텍스트만 출력하십시오.
 
 {
-  "날짜": "${today}",
-  "공종": "공종명 및 작업 내용 요약",
-  "인원": "투입 인원 및 장비 현황 요약",
-  "특이사항": "안전 사항 및 특이사항 요약"
+  "일자": "${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })}",
+  "구역": "구역명 기재",
+  "공정": "베테랑의 숨결이 느껴지는 전문 문구로 2~3줄 기재",
+  "안전": "법적 점검 사항을 준수한 듯한 격식 있는 문구 기재",
+  "특기": "특이사항 기재 (없으면 '금일 작업 중 특이사항 없음' 으로 기재)"
 }
 
 [입력 데이터]: ${text}`;
@@ -70,7 +73,7 @@ const App = () => {
       const parsed = JSON.parse(result);
       
       try { 
-        const copyText = `날짜: ${parsed.날짜}\n공종: ${parsed.공종}\n인원: ${parsed.인원}\n특이사항: ${parsed.특이사항}`;
+        const copyText = `일자: ${parsed.일자}\n● 구역: ${parsed.구역}\n● 공정: ${parsed.공정}\n● 안전: ${parsed.안전}\n● 특기: ${parsed.특기}`;
         if (navigator.clipboard) await navigator.clipboard.writeText(copyText); 
       } catch (e) {}
       
@@ -255,13 +258,28 @@ const App = () => {
   // 잡내(URL, 마크다운 별표 등) 제거용 헬퍼 함수
   const cleanAiText = (val) => {
     if (typeof val !== 'string') return val;
+    // 마크다운 별표(**) 제거 및 http/https URL 제거 (정규표현식)
     return val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
   };
 
   const formatReportContentForCopy = (data) => {
     if (!data) return '';
-    if (typeof data === 'string') return cleanAiText(data);
-    return `[현 장 공 정 일 보]\n날짜: ${cleanAiText(data.날짜) || ''}\n공종: ${cleanAiText(data.공종) || ''}\n인원: ${cleanAiText(data.인원) || ''}\n특이사항: ${cleanAiText(data.특이사항) || ''}`;
+    const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
+    
+    if (typeof data === 'string') {
+      return `일자: ${today}\n\n${cleanAiText(data)}`;
+    }
+    
+    // 객체 데이터인 경우 순수 텍스트로 결합
+    const entries = [
+      `일자: ${today}`,
+      data.구역 ? `구역: ${cleanAiText(data.구역)}` : '',
+      data.공정 ? `공정: ${cleanAiText(data.공정)}` : '',
+      data.안전 ? `안전: ${cleanAiText(data.안전)}` : '',
+      data.특기 ? `특기: ${cleanAiText(data.특기)}` : ''
+    ].filter(Boolean);
+    
+    return entries.join('\n');
   };
 
   const handleCopy = async () => {
@@ -295,41 +313,20 @@ const App = () => {
   const renderReportTable = (aiData) => {
     if (!aiData) return null;
 
-    let displayData = aiData;
-    if (typeof displayData === 'object' && !displayData.날짜 && !displayData.공종) {
-      displayData = displayData.text || displayData.content || JSON.stringify(displayData, null, 2);
-    }
-
-    if (typeof displayData === 'string') {
-      return (
-        <div style={{ padding: '10px', fontSize: '1.8rem', fontWeight: '900', color: '#000', lineHeight: '1.5', wordBreak: 'keep-all', textAlign: 'left', whiteSpace: 'pre-wrap' }}>
-          {cleanAiText(displayData)}
-        </div>
-      );
-    }
-
-    if (typeof displayData !== 'object') return null;
-
-    const entries = [
-      { key: '날짜', val: cleanAiText(displayData.날짜) },
-      { key: '공종', val: cleanAiText(displayData.공종) },
-      { key: '인원', val: cleanAiText(displayData.인원) },
-      { key: '특이사항', val: cleanAiText(displayData.특이사항) }
-    ];
+    const formattedText = formatReportContentForCopy(aiData);
 
     return (
-      <div style={{ padding: '10px 0', display: 'flex', flexDirection: 'column', gap: '25px' }}>
-        {entries.map((row, idx) => {
-          if (!row.val) return null;
-          return (
-            <div key={idx} style={{ textAlign: 'left' }}>
-              <div style={{ fontSize: '1.2rem', color: '#007AFF', fontWeight: 'bold', marginBottom: '8px' }}>[{row.key}]</div>
-              <div style={{ fontSize: '2.0rem', fontWeight: '900', color: '#000', lineHeight: '1.4', wordBreak: 'keep-all', letterSpacing: '-0.5px' }}>
-                {row.val}
-              </div>
-            </div>
-          );
-        })}
+      <div style={{ 
+        padding: '10px', 
+        fontSize: '1.8rem', 
+        fontWeight: '900', 
+        color: '#000', 
+        lineHeight: '1.6', 
+        wordBreak: 'keep-all', 
+        textAlign: 'left', 
+        whiteSpace: 'pre-wrap' 
+      }}>
+        {formattedText}
       </div>
     );
   };
@@ -402,10 +399,10 @@ const App = () => {
 
               <div style={{ marginTop: '30px' }}>
                 <button 
-                  style={{ width: '100%', padding: '20px', borderRadius: '15px', background: '#FF5A00', color: '#fff', fontSize: '1.8rem', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 8px 20px rgba(255, 90, 0, 0.3)' }} 
+                  style={{ width: '100%', padding: '20px', borderRadius: '15px', background: '#FF5A00', color: '#fff', fontSize: '2.2rem', fontWeight: '900', border: 'none', cursor: 'pointer', boxShadow: '0 8px 25px rgba(255, 90, 0, 0.4)' }} 
                   onClick={handleCopy}
                 >
-                  내용 복사하기
+                  [이 문구 복사하기]
                 </button>
               </div>
             </motion.div>
