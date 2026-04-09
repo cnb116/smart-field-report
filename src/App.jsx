@@ -346,9 +346,9 @@ const App = () => {
       return parts.map((part, i) => {
         if (i % 2 === 1) {
           return (
-            <span key={i} style={{ fontWeight: 'bold' }}>
+            <strong key={i} style={{ fontWeight: '900', color: '#000' }}>
               {part}
-            </span>
+            </strong>
           );
         }
         return part;
@@ -356,21 +356,23 @@ const App = () => {
     };
 
     return (
-      <div style={{ 
-        fontSize: '1.05rem', // 1.05 ~ 1.1rem 수준으로 가로 한 줄에 문장이 다 들어가게 최적화
-        color: '#111',       
-        lineHeight: '1.6',   // 요청하신 1.6으로 줄 간격 조정
-        letterSpacing: '-0.4px', 
-        wordBreak: 'keep-all', 
-        textAlign: 'left'
-      }}>
+      <div style={{ width: '100%', padding: '0 4px' }}>
+        <style>{`
+          .super-force-text-row {
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+            word-break: keep-all !important;
+            text-align: left !important;
+            color: #111 !important;
+          }
+        `}</style>
         {lines.map((line, idx) => {
           const isHeader = line.startsWith('●');
           return (
-            <div key={idx} style={{ 
-              marginTop: isHeader && idx !== 0 ? '20px' : '4px',
-              fontWeight: isHeader ? 'bold' : 'normal',
-              paddingLeft: isHeader ? '0' : '10px'
+            <div key={idx} className="super-force-text-row" style={{ 
+              marginTop: isHeader && idx !== 0 ? '16px' : '2px',
+              fontWeight: isHeader ? '900' : 'normal',
+              paddingLeft: isHeader ? '0' : '6px'
             }}>
               {highlightNumbers(line)}
             </div>
@@ -427,22 +429,27 @@ const App = () => {
             onClick={() => setShowAIPanel(false)}
             style={{
               position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-              backgroundColor: 'rgba(0,0,0,0.7)',
+              backgroundColor: 'rgba(0,0,0,0.85)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              zIndex: 9999
+              zIndex: 999999,
+              padding: '0 1%' // 양옆 여백을 아주 미세하게만 줌
             }}
           >
+            <style>{`
+              .super-force-modal {
+                width: 98% !important;
+                max-width: 800px !important;
+              }
+            `}</style>
             <motion.div 
-              className="modal-content"
+              className="modal-content super-force-modal"
               style={{ 
                 background: '#FFFDF0', // 눈이 편안한 아이보리/미색
-                borderRadius: '12px',
-                width: '96%', // 가로를 최대한 꽉 채움 
-                maxWidth: '650px', 
-                maxHeight: '90vh', 
+                borderRadius: '8px',
+                maxHeight: '92vh', 
                 display: 'flex',
                 flexDirection: 'column',
-                boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
+                boxShadow: '0 15px 35px rgba(0,0,0,0.5)',
                 overflow: 'hidden'
               }}
               initial={{ scale: 0.9, opacity: 0 }}
@@ -462,9 +469,9 @@ const App = () => {
               </div>
 
               {/* 본문 (베이지색 페이퍼 영역) */}
-              <div style={{ padding: '20px 16px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '16px 12px', overflowY: 'auto', flex: 1 }}>
                 
-                <h2 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#111', margin: '0 0 10px 0' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#111', margin: '0 0 10px 0', paddingLeft: '4px' }}>
                   일자: {currentDate}
                 </h2>
                 <div style={{ borderBottom: '2px solid #222', marginBottom: '16px' }}></div>
