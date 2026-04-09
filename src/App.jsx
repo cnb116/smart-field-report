@@ -255,23 +255,25 @@ const App = () => {
     }
   };
 
-  // 잡내(URL, 마크다운 별표 등) 및 엉뚱한 날짜 강제 치환용 헬퍼 함수
+  // 잡내 및 출력하지 않을 줄(일자, 구역 등) 삭제 헬퍼 함수
   const cleanAiText = (val) => {
     if (typeof val !== 'string') return val;
     
-    // 오늘 날짜 구하기 (YYYY-MM-DD 형식)
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const todayStr = `${year}-${month}-${day}`;
-
     // 마크다운 별표(**) 제거 및 http/https URL 제거
     let cleaned = val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
 
-    // 202X년, 202X년 X월 X일, 202X-X-X, 202X.X.X 등 날짜 패턴 검출 후 오늘 날짜로 치환
+    // 제미나이가 보내오는 텍스트 중 '일자:' 혹은 '구역:' 로 시작/포함하는 줄 전체를 정규식으로 삭제
+    cleaned = cleaned.replace(/^.*일자\s*[:：].*$/gm, '');
+    cleaned = cleaned.replace(/^.*구역\s*[:：].*$/gm, '');
+
+    // 혹시라도 내용 중간에 2024년 같은 엉뚱한 날짜가 문장 속에 파고들었을 경우를 대비해 치환(보조)
+    const d = new Date();
+    const todayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const dateRegex = /202\d\s*(?:년\s*(?:\d{1,2}\s*월\s*\d{1,2}\s*일?)?|[\-\.]\s*\d{1,2}[\-\.]\s*\d{1,2}[일\.]?)/g;
     cleaned = cleaned.replace(dateRegex, todayStr);
+
+    // 삭제 후 생긴 불필요한 빈 줄 정리
+    cleaned = cleaned.replace(/\n\s*\n/g, '\n\n').trim();
 
     return cleaned;
   };
@@ -279,21 +281,25 @@ const App = () => {
   const formatReportContentForCopy = (data) => {
     if (!data) return '';
     
-    // 응답 텍스트에 이미 일자가 포함되어 있으므로 상단 고정 일자 라인은 추가하지 않습니다.
+    // 문자열응답일 경우 cleanAiText에서 이미 일자/구역 라인이 지워진 상태로 반환됩니다.
     if (typeof data === 'string') {
-      return cleanAiText(data);
+      let cleanedStr = cleanAiText(data);
+      // '● ' 기호가 없는 경우 각 라인에 맞춰 보정 (이미 제미나이가 붙여준 경우 통과)
+      cleanedStr = cleanedStr.replace(/^(공정\s*[:：])/gm, '● $1');
+      cleanedStr = cleanedStr.replace(/^(안전\s*[:：])/gm, '● $1');
+      cleanedStr = cleanedStr.replace(/^(특기\s*[:：])/gm, '● $1');
+      return cleanedStr;
     }
     
-    // 객체 데이터인 경우 순수 텍스트로 결합
+    // 객체 데이터인 경우 우리가 오직 '공정', '안전', '특기' 3가지만 추출 (명시된 ● 말머리 추가)
+    // 일자, 구역은 배열에 아예 포함하지 않음.
     const entries = [
-      data.일자 ? `일자: ${cleanAiText(String(data.일자))}` : '',
-      data.구역 ? `구역: ${cleanAiText(String(data.구역))}` : '',
-      data.공정 ? `공정: ${cleanAiText(String(data.공정))}` : '',
-      data.안전 ? `안전: ${cleanAiText(String(data.안전))}` : '',
-      data.특기 ? `특기: ${cleanAiText(String(data.특기))}` : ''
+      data.공정 ? `● 공정: ${cleanAiText(String(data.공정))}` : '',
+      data.안전 ? `● 안전: ${cleanAiText(String(data.안전))}` : '',
+      data.특기 ? `● 특기: ${cleanAiText(String(data.특기))}` : ''
     ].filter(Boolean);
     
-    // 좀 더 넒은 공간감을 위해 항목 간 이중 줄바꿈 처리 (\n\n)
+    // 좀 더 넓은 공간감을 위해 항목 간 이중 줄바꿈 처리 (\n\n)
     return entries.join('\n\n');
   };
 
