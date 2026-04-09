@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import './index.css';
 
-const APP_URL = "https://vercelponesons-projects.vercel.app";
+const APP_URL = "https://smart-field-report.vercel.app";
 const TITLE = "김반장 현장 보고";
 
 const App = () => {
