@@ -357,10 +357,10 @@ const App = () => {
 
     return (
       <div style={{ 
-        fontSize: '1.1rem', // 한 줄에 더 많이 들어가도록 크기 줄임
+        fontSize: '1.05rem', // 1.05 ~ 1.1rem 수준으로 가로 한 줄에 문장이 다 들어가게 최적화
         color: '#111',       
-        lineHeight: '1.7',   // 더 널널한 줄 간격 적용
-        letterSpacing: '-0.3px', 
+        lineHeight: '1.6',   // 요청하신 1.6으로 줄 간격 조정
+        letterSpacing: '-0.4px', 
         wordBreak: 'keep-all', 
         textAlign: 'left'
       }}>
@@ -436,10 +436,10 @@ const App = () => {
               className="modal-content"
               style={{ 
                 background: '#FFFDF0', // 눈이 편안한 아이보리/미색
-                borderRadius: '16px',
-                width: '90%', 
-                maxWidth: '430px', 
-                maxHeight: '85vh', 
+                borderRadius: '12px',
+                width: '96%', // 가로를 최대한 꽉 채움 
+                maxWidth: '650px', 
+                maxHeight: '90vh', 
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: '0 15px 35px rgba(0,0,0,0.2)',
@@ -462,24 +462,24 @@ const App = () => {
               </div>
 
               {/* 본문 (베이지색 페이퍼 영역) */}
-              <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '20px 16px', overflowY: 'auto', flex: 1 }}>
                 
-                <h2 style={{ fontSize: '1.6rem', fontWeight: '900', color: '#111', margin: '0 0 12px 0' }}>
+                <h2 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#111', margin: '0 0 10px 0' }}>
                   일자: {currentDate}
                 </h2>
-                <div style={{ borderBottom: '2px solid #222', marginBottom: '20px' }}></div>
+                <div style={{ borderBottom: '2px solid #222', marginBottom: '16px' }}></div>
 
                 {renderReportTable(reportContent)}
 
-                <div style={{ marginTop: '30px' }}>
+                <div style={{ marginTop: '24px' }}>
                   <button 
                     style={{ 
                       width: '100%', 
-                      padding: '18px',     // 더 큼직하게
-                      borderRadius: '14px', // 더 둥글게
+                      padding: '12px',     // 화면 가리지 않게 버튼 크기 적당히 조절
+                      borderRadius: '10px', 
                       background: '#E87A30', 
                       color: '#fff', 
-                      fontSize: '1.3rem', 
+                      fontSize: '1.2rem', 
                       fontWeight: 'bold', 
                       border: 'none', 
                       cursor: 'pointer', 
