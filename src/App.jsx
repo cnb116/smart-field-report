@@ -255,31 +255,46 @@ const App = () => {
     }
   };
 
-  // 잡내(URL, 마크다운 별표 등) 제거용 헬퍼 함수
+  // 잡내(URL, 마크다운 별표 등) 및 엉뚱한 날짜 강제 치환용 헬퍼 함수
   const cleanAiText = (val) => {
     if (typeof val !== 'string') return val;
-    // 마크다운 별표(**) 제거 및 http/https URL 제거 (정규표현식)
-    return val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
+    
+    // 오늘 날짜 구하기 (YYYY-MM-DD 형식)
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    // 마크다운 별표(**) 제거 및 http/https URL 제거
+    let cleaned = val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
+
+    // 202X년, 202X년 X월 X일, 202X-X-X, 202X.X.X 등 날짜 패턴 검출 후 오늘 날짜로 치환
+    const dateRegex = /202\d\s*(?:년\s*(?:\d{1,2}\s*월\s*\d{1,2}\s*일?)?|[\-\.]\s*\d{1,2}[\-\.]\s*\d{1,2}[일\.]?)/g;
+    cleaned = cleaned.replace(dateRegex, todayStr);
+
+    return cleaned;
   };
 
   const formatReportContentForCopy = (data) => {
     if (!data) return '';
-    const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' });
     
+    // 응답 텍스트에 이미 일자가 포함되어 있으므로 상단 고정 일자 라인은 추가하지 않습니다.
     if (typeof data === 'string') {
-      return `일자: ${today}\n\n${cleanAiText(data)}`;
+      return cleanAiText(data);
     }
     
     // 객체 데이터인 경우 순수 텍스트로 결합
     const entries = [
-      `일자: ${today}`,
-      data.구역 ? `구역: ${cleanAiText(data.구역)}` : '',
-      data.공정 ? `공정: ${cleanAiText(data.공정)}` : '',
-      data.안전 ? `안전: ${cleanAiText(data.안전)}` : '',
-      data.특기 ? `특기: ${cleanAiText(data.특기)}` : ''
+      data.일자 ? `일자: ${cleanAiText(String(data.일자))}` : '',
+      data.구역 ? `구역: ${cleanAiText(String(data.구역))}` : '',
+      data.공정 ? `공정: ${cleanAiText(String(data.공정))}` : '',
+      data.안전 ? `안전: ${cleanAiText(String(data.안전))}` : '',
+      data.특기 ? `특기: ${cleanAiText(String(data.특기))}` : ''
     ].filter(Boolean);
     
-    return entries.join('\n');
+    // 좀 더 넒은 공간감을 위해 항목 간 이중 줄바꿈 처리 (\n\n)
+    return entries.join('\n\n');
   };
 
   const handleCopy = async () => {
@@ -321,7 +336,7 @@ const App = () => {
         fontSize: '1.8rem', 
         fontWeight: '900', 
         color: '#000', 
-        lineHeight: '1.6', 
+        lineHeight: '1.6',  // 요청하신 줄 간격 1.6 적용
         wordBreak: 'keep-all', 
         textAlign: 'left', 
         whiteSpace: 'pre-wrap' 
