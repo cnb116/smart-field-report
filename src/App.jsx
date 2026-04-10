@@ -379,21 +379,24 @@ const App = () => {
         <style>{`
           /* 리액트 인라인 style의 한계를 깨고 가장 강력하게 덮어쓰는 최종 강제 태그 */
           .ultra-force-row {
-            font-size: 15px !important;
-            line-height: 1.5 !important;
+            font-size: 13px !important;
+            line-height: 1.4 !important;
             word-break: keep-all !important;
+            white-space: normal !important;
             text-align: left !important;
           }
         `}</style>
         {lines.map((line, idx) => {
-          const isHeader = line.startsWith('●');
+          const isHeader = line.startsWith('●') || line.startsWith('공정');
           return (
             <div key={idx} className="ultra-force-row" style={{ 
               marginTop: isHeader && idx !== 0 ? '16px' : '2px',
               fontWeight: isHeader ? '900' : 'normal',
               paddingLeft: isHeader ? '0' : '6px',
-              fontSize: '15px',
-              lineHeight: '1.5'
+              fontSize: '13px',
+              lineHeight: '1.4',
+              whiteSpace: 'normal',
+              wordBreak: 'keep-all'
             }}>
               {highlightNumbers(line)}
             </div>
@@ -458,9 +461,9 @@ const App = () => {
           >
             <style>{`
               .ultra-force-modal {
-                width: 98% !important;
+                width: 100% !important;
                 max-width: 800px !important;
-                margin: 0 auto !important;
+                margin: 0 !important;
                 padding: 10px !important; 
               }
             `}</style>
@@ -469,9 +472,10 @@ const App = () => {
               style={{ 
                 background: '#FFFDF0', // 눈이 편안한 아이보리/미색
                 borderRadius: '8px',
-                width: '98%',
+                width: '100%',
                 maxWidth: '800px',
                 padding: '10px',
+                margin: '0',
                 maxHeight: '94vh', 
                 display: 'flex',
                 flexDirection: 'column',
