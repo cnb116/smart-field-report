@@ -297,28 +297,38 @@ const App = () => {
   const formatReportContentForCopy = (data) => {
     if (!data) return '';
     
-    // 문자열응답일 경우 cleanAiText에서 이미 일자/구역 라인이 지워진 상태로 반환됩니다.
-    if (typeof data === 'string') {
-      let cleanedStr = cleanAiText(data);
-      // '● ' 기호가 없는 경우 각 라인에 맞춰 보정 (이미 제미나이가 붙여준 경우 통과)
-      cleanedStr = cleanedStr.replace(/^(공정\s*[:：])/gm, '● $1');
-      cleanedStr = cleanedStr.replace(/^(안전\s*[:：])/gm, '● $1');
-      cleanedStr = cleanedStr.replace(/^(특기\s*[:：])/gm, '● $1');
-      // 제목과 내용을 줄바꿈으로 분리
-      cleanedStr = cleanedStr.replace(/●\s*(공정|안전|특기)\s*[:：]\s*/g, '● $1:\n');
-      return cleanedStr;
+    let cleanedStr = typeof data === 'string' ? cleanAiText(data) : '';
+
+    // 객체 데이터일 경우 스트링으로 덤프
+    if (typeof data !== 'string') {
+      const getVal = (val) => val ? cleanAiText(String(val)).trim() : '';
+      cleanedStr = `공정:\n${getVal(data.공정)}\n\n안전:\n${getVal(data.안전)}\n\n● 특기: ${getVal(data.특기)}`;
     }
-    
-    // 객체 데이터인 경우 우리가 오직 '공정', '안전', '특기' 3가지만 추출 (명시된 ● 말머리 추가)
-    // 일자, 구역은 배열에 아예 포함하지 않음.
-    const entries = [
-      data.공정 ? `● 공정:\n${cleanAiText(String(data.공정))}` : '',
-      data.안전 ? `● 안전:\n${cleanAiText(String(data.안전))}` : '',
-      data.특기 ? `● 특기:\n${cleanAiText(String(data.특기))}` : ''
-    ].filter(Boolean);
-    
-    // 복사 시에도 줄간 여백을 위해 이중 줄바꿈 처리
-    return entries.join('\n\n');
+
+    // 1. 엉뚱한 구간에서 줄 바꿈(엔터)이 발생한 것을 강제로 한 줄로 이어붙임
+    const lines = cleanedStr.split('\n').map(l => l.trim()).filter(Boolean);
+    let mergedLines = [];
+    for (const line of lines) {
+      // 새로운 말머리나 제목으로 시작하는지 판별
+      const isNewParagraph = /^(●|-|\*|\d+\.|공정|안전|특기)/.test(line);
+      
+      if (isNewParagraph || mergedLines.length === 0) {
+        mergedLines.push(line);
+      } else {
+        // 말머리가 없으면 이전 문장의 끝부분 이므로 띄어쓰기로 합침 (카톡 줄바꿈 깨짐 방지)
+        mergedLines[mergedLines.length - 1] += ' ' + line;
+      }
+    }
+    cleanedStr = mergedLines.join('\n');
+
+    // 2. 카카오톡 최적화 포맷팅 (사진과 100% 동일한 양식)
+    // - 공정, 안전은 불릿 빼고 줄바꿈
+    cleanedStr = cleanedStr.replace(/^[●\-\*\s]*(공정|안전)\s*[:：]\s*/gm, '\n$1:\n');
+    // - 특기는 앞에 불릿을 달고 단일 줄로 유지
+    cleanedStr = cleanedStr.replace(/^[●\-\*\s]*(특기)\s*[:：]\s*/gm, '\n● 특기: ');
+
+    // 3. 중복 줄바꿈을 2칸으로 깔끔하게 정리
+    return cleanedStr.replace(/\n{3,}/g, '\n\n').trim();
   };
 
   const handleCopy = async () => {
@@ -387,12 +397,12 @@ const App = () => {
           }
         `}</style>
         {lines.map((line, idx) => {
-          const isHeader = line.startsWith('●') || line.startsWith('공정');
+          const isHeader = line.startsWith('●') || line.startsWith('공정') || line.startsWith('안전');
           return (
             <div key={idx} className="ultra-force-row" style={{ 
-              marginTop: isHeader && idx !== 0 ? '16px' : '2px',
+              marginTop: isHeader && idx !== 0 ? '20px' : '4px',
               fontWeight: isHeader ? '900' : 'normal',
-              paddingLeft: isHeader ? '0' : '6px',
+              paddingLeft: isHeader ? '0' : '8px',
               fontSize: '13px',
               lineHeight: '1.4',
               whiteSpace: 'normal',
