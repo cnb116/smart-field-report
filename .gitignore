@@ -31,3 +31,4 @@ deploy_result.txt
 env_output.txt
 vercel_ls_out.txt
 vercel_ls.txt
+.env*.local

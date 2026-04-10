@@ -50,6 +50,7 @@ const App = () => {
 - 절대 별표(**)를 쓰지 마십시오. (필사 방해)
 - "~함", "~완료", "~확인됨" 등으로 끝나는 전문적인 군더더기 없는 문체 사용.
 - 웹주소(URL)는 절대로 결과물에 포함하지 마십시오.
+- [필수 오타 교정]: 음성 인식 오류로 '5분 게이트', '5년이 더' 등으로 입력되어도 현장 상황에 맞도록 반드시 '5번 게이트', '5호 게이트' 등으로 문맥을 보정출력하십시오.
 
 출력 형식: 반드시 아래와 같은 JSON 구조로만 출력하십시오. 코드 블록(\`\`\`) 없이 순수 JSON 텍스트만 출력하십시오.
 
@@ -169,7 +170,9 @@ const App = () => {
 
     try {
       // 1공정(구글 시트) / 2공정(리포트 생성) 웹훅 각각 준비
-      const sheetWebhookUrl = import.meta.env.VITE_MAKE_MEMO_WEBHOOK_URL || "https://hook.eu2.make.com/easw4ekupjz4x53jyxbu4bovypej0jr3";
+      // Vercel 자체 환경 변수가 이전 값(6stf...)을 쥐고 안 놔줄 위험이 있어, 1공정은 무조건 하드코딩된 주소로만 직행하게 강제 배선함.
+      const sheetWebhookUrl = "https://hook.eu2.make.com/easw4ekupjz4x53jyxbu4bovypej0jr3";
+      // 2공정은 하드코딩 폴백을 거치도록 유지
       const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL || "https://hook.eu2.make.com/6stf1efcws7opes4d33snrse5clfy6m9";
 
       if (!reportWebhookUrl) {
