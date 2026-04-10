@@ -376,13 +376,24 @@ const App = () => {
 
     return (
       <div style={{ width: '100%', padding: '0 2px' }}>
+        <style>{`
+          /* 리액트 인라인 style의 한계를 깨고 가장 강력하게 덮어쓰는 최종 강제 태그 */
+          .ultra-force-row {
+            font-size: 15px !important;
+            line-height: 1.5 !important;
+            word-break: keep-all !important;
+            text-align: left !important;
+          }
+        `}</style>
         {lines.map((line, idx) => {
           const isHeader = line.startsWith('●');
           return (
-            <div key={idx} className="super-force-text-row" style={{ 
+            <div key={idx} className="ultra-force-row" style={{ 
               marginTop: isHeader && idx !== 0 ? '16px' : '2px',
               fontWeight: isHeader ? '900' : 'normal',
-              paddingLeft: isHeader ? '0' : '6px'
+              paddingLeft: isHeader ? '0' : '6px',
+              fontSize: '15px',
+              lineHeight: '1.5'
             }}>
               {highlightNumbers(line)}
             </div>
@@ -446,33 +457,22 @@ const App = () => {
             }}
           >
             <style>{`
-              .super-force-modal {
-                width: 95vw !important;
-                max-width: 600px !important;
+              .ultra-force-modal {
+                width: 98% !important;
+                max-width: 800px !important;
                 margin: 0 auto !important;
-              }
-              .super-force-text-row {
-                font-size: 14px !important;
-                line-height: 1.5 !important;
-                word-break: keep-all !important;
-                text-align: left !important;
-                color: #111 !important;
-              }
-              @media (min-width: 600px) {
-                .super-force-modal {
-                  width: 100% !important; /* PC는 max-width 600px이라 내부적으로 알아서 꽉 참 */
-                }
-                .super-force-text-row {
-                  font-size: 16px !important;
-                }
+                padding: 10px !important; 
               }
             `}</style>
             <motion.div 
-              className="modal-content super-force-modal"
+              className="modal-content ultra-force-modal"
               style={{ 
                 background: '#FFFDF0', // 눈이 편안한 아이보리/미색
                 borderRadius: '8px',
-                maxHeight: '92vh', 
+                width: '98%',
+                maxWidth: '800px',
+                padding: '10px',
+                maxHeight: '94vh', 
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: '0 15px 35px rgba(0,0,0,0.5)',
@@ -495,7 +495,7 @@ const App = () => {
               </div>
 
               {/* 본문 (베이지색 페이퍼 영역) */}
-              <div className="report-paper-area" style={{ overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '0px 2px', overflowY: 'auto', flex: 1 }}>
                 
                 <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#111', margin: '0 0 10px 0', paddingLeft: '4px' }}>
                   일자: {currentDate}
