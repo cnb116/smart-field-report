@@ -166,29 +166,48 @@ const App = () => {
     setIsSending(true);
 
     try {
-      // 1. 데이터 시트 전송 (Make Webhook - 원본 데이터 직접 발송)
-      const webhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL;
-      if (!webhookUrl) {
+      // 1공정(구글 시트) / 2공정(리포트 생성) 웹훅 각각 준비
+      const sheetWebhookUrl = import.meta.env.VITE_MAKE_MEMO_WEBHOOK_URL;
+      const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL;
+
+      if (!reportWebhookUrl) {
         console.error("🚨 VITE_MAKE_REPORT_WEBHOOK_URL이 설정되지 않았습니다!");
       }
-      
+
+      // Make.com 구글 시트 시나리오 및 제미나이 생성 시나리오 양측 호환을 위해 값 짱짱하게 채움
       const payload = {
         id: Date.now(),
-        raw_content: memoText,      // 원본 음성/텍스트 입고
+        text: memoText,             // 구글 시트 매핑용 과거 키값
+        raw_content: memoText,      // 리포트 생성용 신규 키값
         timestamp: new Date().toISOString(),
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       };
 
-      console.log("🚀 구글 시트 배선 전송 시작:", payload);
+      console.log("🚀 Make.com 전송 시작 (Payload):", payload);
+
+      // (1공정) 구글 시트에 원본 데이터 전송 - 비동기로 바로 던져서 지연 최소화
+      if (sheetWebhookUrl) {
+        axios.post(sheetWebhookUrl, payload, { 
+          timeout: 10000,
+          headers: { 'Content-Type': 'application/json' }
+        }).then((res) => {
+          console.log("✅ 1공정 (구글 시트 전송) 성공:", res.data);
+        }).catch((err) => {
+          console.error("🚨 1공정 (구글 시트 전송) 실패:", err);
+        });
+      } else {
+        console.warn("🚨 VITE_MAKE_MEMO_WEBHOOK_URL (1공정) 주소가 누락되었습니다!");
+      }
 
       let finalReportData = null;
 
-      if (webhookUrl) {
-        const response = await axios.post(webhookUrl, payload, { 
+      // (2공정) 리포트 팝업 생성(제미나이 활용) 전송 후 결과 대기
+      if (reportWebhookUrl) {
+        const response = await axios.post(reportWebhookUrl, payload, { 
           timeout: 40000,
           headers: { 'Content-Type': 'application/json' }
         });
-        console.log("✅ 구글 시트 배선 전송 성공:", response.data);
+        console.log("✅ 2공정 (리포트 생성) 성공:", response.data);
         
         // Make.com 응답 안의 result 반영 (없으면 전체 반영)
         if (response.data && response.data.result) {
