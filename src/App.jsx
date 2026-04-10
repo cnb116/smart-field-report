@@ -23,6 +23,7 @@ const App = () => {
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [reportContent, setReportContent] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [sheetError, setSheetError] = useState(false);
 
   // 음성 인식 관련 (Web Speech API)
   const recognitionRef = useRef(null);
@@ -164,6 +165,7 @@ const App = () => {
   const handleSendMemo = async () => {
     if (!memoText.trim()) return;
     setIsSending(true);
+    setSheetError(false);
 
     try {
       // 1공정(구글 시트) / 2공정(리포트 생성) 웹훅 각각 준비
@@ -194,6 +196,7 @@ const App = () => {
           console.log("✅ 1공정 (구글 시트 전송) 성공:", res.data);
         }).catch((err) => {
           console.error("🚨 1공정 (구글 시트 전송) 실패:", err);
+          setSheetError(true);
         });
       } else {
         console.warn("🚨 VITE_MAKE_MEMO_WEBHOOK_URL (1공정) 주소가 누락되었습니다!");
@@ -519,6 +522,17 @@ const App = () => {
                 {renderReportTable(reportContent)}
 
                 <div style={{ marginTop: '24px' }}>
+                  {sheetError && (
+                    <div style={{ 
+                      textAlign: 'center', 
+                      color: '#E87A30', 
+                      fontSize: '12px', 
+                      fontWeight: 'bold', 
+                      marginBottom: '8px' 
+                    }}>
+                      ⚠️ 시트 저장 실패(관리자 문의)
+                    </div>
+                  )}
                   <button 
                     style={{ 
                       width: '100%', 
