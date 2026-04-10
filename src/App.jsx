@@ -375,16 +375,7 @@ const App = () => {
     };
 
     return (
-      <div style={{ width: '100%', padding: '0 4px' }}>
-        <style>{`
-          .super-force-text-row {
-            font-size: 16px !important;
-            line-height: 1.6 !important;
-            word-break: keep-all !important;
-            text-align: left !important;
-            color: #111 !important;
-          }
-        `}</style>
+      <div style={{ width: '100%', padding: '0 2px' }}>
         {lines.map((line, idx) => {
           const isHeader = line.startsWith('●');
           return (
@@ -456,8 +447,24 @@ const App = () => {
           >
             <style>{`
               .super-force-modal {
-                width: 98% !important;
-                max-width: 800px !important;
+                width: 95vw !important;
+                max-width: 600px !important;
+                margin: 0 auto !important;
+              }
+              .super-force-text-row {
+                font-size: 14px !important;
+                line-height: 1.5 !important;
+                word-break: keep-all !important;
+                text-align: left !important;
+                color: #111 !important;
+              }
+              @media (min-width: 600px) {
+                .super-force-modal {
+                  width: 100% !important; /* PC는 max-width 600px이라 내부적으로 알아서 꽉 참 */
+                }
+                .super-force-text-row {
+                  font-size: 16px !important;
+                }
               }
             `}</style>
             <motion.div 
@@ -488,7 +495,7 @@ const App = () => {
               </div>
 
               {/* 본문 (베이지색 페이퍼 영역) */}
-              <div style={{ padding: '16px 12px', overflowY: 'auto', flex: 1 }}>
+              <div style={{ padding: '16px 10px', overflowY: 'auto', flex: 1 }}>
                 
                 <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#111', margin: '0 0 10px 0', paddingLeft: '4px' }}>
                   일자: {currentDate}
