@@ -204,7 +204,7 @@ const App = () => {
       // (2공정) 리포트 팝업 생성(제미나이 활용) 전송 후 결과 대기
       if (reportWebhookUrl) {
         const response = await axios.post(reportWebhookUrl, payload, { 
-          timeout: 40000,
+          timeout: 120000,
           headers: { 'Content-Type': 'application/json' }
         });
         console.log("✅ 2공정 (리포트 생성) 성공:", response.data);
