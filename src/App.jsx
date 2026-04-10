@@ -170,7 +170,7 @@ const App = () => {
     try {
       // 1공정(구글 시트) / 2공정(리포트 생성) 웹훅 각각 준비
       const sheetWebhookUrl = import.meta.env.VITE_MAKE_MEMO_WEBHOOK_URL || "https://hook.eu2.make.com/easw4ekupjz4x53jyxbu4bovypej0jr3";
-      const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL;
+      const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL || "https://hook.eu2.make.com/6stf1efcws7opes4d33snrse5clfy6m9";
 
       if (!reportWebhookUrl) {
         console.error("🚨 VITE_MAKE_REPORT_WEBHOOK_URL이 설정되지 않았습니다!");
