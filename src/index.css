@@ -1032,3 +1032,29 @@ input, textarea, button { font-family: inherit; }
 .animate-spin {
   animation: spin 0.85s linear infinite;
 }
+
+/* =======================================================
+   🔥🔥🔥 사용자 특별 강제 지시사항 (절대 무시 금지) 🔥🔥🔥
+======================================================= */
+/* 팝업 가로폭 확장 */
+.modal-content.super-force-modal {
+  width: 96% !important;
+}
+
+@media (min-width: 600px) {
+  .modal-content.super-force-modal {
+    max-width: 800px !important;
+  }
+}
+
+/* 글자 크기 강제 고정 및 텍스트 래퍼 */
+.modal-content, 
+.report-text, 
+.super-force-text-row {
+  font-size: 15px !important;
+}
+
+/* 여백(Padding) 최소화 */
+.modal-content .report-paper-area {
+  padding: 15px !important;
+}

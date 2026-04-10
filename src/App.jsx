@@ -495,7 +495,7 @@ const App = () => {
               </div>
 
               {/* 본문 (베이지색 페이퍼 영역) */}
-              <div style={{ padding: '16px 10px', overflowY: 'auto', flex: 1 }}>
+              <div className="report-paper-area" style={{ overflowY: 'auto', flex: 1 }}>
                 
                 <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#111', margin: '0 0 10px 0', paddingLeft: '4px' }}>
                   일자: {currentDate}
