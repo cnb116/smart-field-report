@@ -3,8 +3,6 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mic, 
-  Send, 
-  CheckSquare, 
   Loader2,
   X
 } from 'lucide-react';
@@ -19,13 +17,11 @@ const App = () => {
   const [isListening, setIsListening] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [currentDate, setCurrentDate] = useState('');
-  const [lastAIAnalysis, setLastAIAnalysis] = useState('');
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [reportContent, setReportContent] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [sheetError, setSheetError] = useState(false);
 
-  // 음성 인식 관련 (Web Speech API)
   const recognitionRef = useRef(null);
   const memoTextRef = useRef(memoText);
 
@@ -33,26 +29,49 @@ const App = () => {
     memoTextRef.current = memoText;
   }, [memoText]);
 
-  // [정식 결재판] AI 결과 겐타 (JSON 형식 데이터 추출)
+  // ══════════════════════════════════════════════════════
+  // [AI 두뇌] Gemini 프롬프트 — 오타 교정 특명 보강판
+  // ══════════════════════════════════════════════════════
   const turboProcessAI = async (text) => {
     const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
     if (!apiKey) {
-      console.error("🚨 VITE_GEMINI_API_KEY가 설정되지 않았습니다! .env 파일이나 Vercel 환경 변수를 확인해주세요.");
+      console.error("🚨 VITE_GEMINI_API_KEY 미설정! Vercel 환경변수를 확인하십시오.");
       return null;
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const prompt = `역할: 대기업 건설 현장 전문 공정 관리관
-미션: 투박한 메모를 [전문가가 작성한 고품격 공정 보고서]로 변환하십시오.
+미션: 투박한 현장 메모를 [전문가가 작성한 고품격 공정 보고서]로 변환하십시오.
 
 [출력 문체 지침]
 - 절대 별표(**)를 쓰지 마십시오. (필사 방해)
-- "~함", "~완료", "~확인됨" 등으로 끝나는 전문적인 군더더기 없는 문체 사용.
+- "~함", "~완료", "~확인됨" 등으로 끝나는 전문적이고 군더더기 없는 문체 사용.
 - 웹주소(URL)는 절대로 결과물에 포함하지 마십시오.
-- [필수 오타 교정]: 음성 인식 오류로 '5분 게이트', '5년이 더' 등으로 입력되어도 현장 상황에 맞도록 반드시 '5번 게이트', '5호 게이트' 등으로 문맥을 보정출력하십시오.
 
-출력 형식: 반드시 아래와 같은 JSON 구조로만 출력하십시오. 코드 블록(\`\`\`) 없이 순수 JSON 텍스트만 출력하십시오.
+[필수 음성 오타 자동교정 — 반드시 적용]
+음성 인식 특성상 숫자+단위 조합이 엉뚱하게 들어올 수 있음. 아래 패턴을 현장 문맥에 맞춰 반드시 교정하십시오.
+
+숫자/번호 오타 교정:
+- '5분 게이트', '오분 게이트', '5분게이트' → '5번 게이트'
+- '제5호 게이트', '제N호 게이트' 형태 → 'N번 게이트' (제~호 표현을 번으로 통일)
+- '3분 구역', '삼분 구역'    → '3번 구역'
+- '5년이 더', '오년이더', '5연이더' → '5호 라인' 또는 '5호 구역' (문맥 판단)
+- '일 번', '2 번', '삼 번'  → '1번', '2번', '3번' (붙여쓰기 통일)
+
+장비/공정 오타 교정:
+- '오봉리에이터', '오퍼레이터' 등 장비 관련 → 문맥상 가장 가까운 건설장비명으로 교정 (예: 오퍼레이터, 굴착기, 리프트 등)
+- '컹크리트', '콘크리트', '콘트리트' → '콘크리트'
+- '레미콘차', '레미관차'              → '레미콘차'
+- '비게', '비계'의 혼용               → '비계'
+- '거프집', '거푸집'의 혼용           → '거푸집'
+- '철근', '체근', '철근봉'            → '철근'
+
+기타:
+- 명백히 이상한 조합(예: '항중기', '크래인', '굴착키')은 현장 문맥상 가장 자연스러운 단어로 교정.
+- 교정 내용을 별도로 명시하지 말고, 교정된 내용으로 바로 출력하십시오.
+
+출력 형식: 반드시 아래 JSON 구조로만 출력하십시오. 코드 블록(\`\`\`) 없이 순수 JSON 텍스트만 출력하십시오.
 
 {
   "일자": "${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' })}",
@@ -69,8 +88,6 @@ const App = () => {
         contents: [{ parts: [{ text: prompt }] }]
       });
       let result = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-      
-      // JSON 파싱 시도 (코드 블록 등이 있을 경우 정제)
       result = result.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(result);
       
@@ -87,46 +104,39 @@ const App = () => {
   };
 
   useEffect(() => {
-    // [화면 유지] 현장 필사 중 화면 꺼짐 방지 (Wakelock API)
-    let wakeLock = null;
+    // [화면 유지] 현장 필사 중 화면 꺼짐 방지
     const requestWakeLock = async () => {
       try {
-        if ('wakeLock' in navigator) {
-          wakeLock = await navigator.wakeLock.request('screen');
-        }
+        if ('wakeLock' in navigator) await navigator.wakeLock.request('screen');
       } catch (err) {
         console.warn(`${err.name}, ${err.message}`);
       }
     };
     requestWakeLock();
 
-    // 로컬 스토리지 데이터 로드 (네트워크 불안정 대비)
     const saved = localStorage.getItem('kimbanjang_memos');
     if (saved) setMemos(JSON.parse(saved));
 
     const updateDate = () => {
       const now = new Date();
-      const options = { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' };
-      setCurrentDate(now.toLocaleDateString('ko-KR', options).replace(/\. /g, '. '));
+      setCurrentDate(now.toLocaleDateString('ko-KR', {
+        year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short'
+      }).replace(/\. /g, '. '));
     };
     updateDate();
 
     if ('webkitSpeechRecognition' in window) {
       const SpeechRecognition = window.webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
-      
-      // [중복 방지] continuous=false로 설정하여 안드로이드 중복 루프 차단
-      recognition.continuous = false; 
+      recognition.continuous = false;
       recognition.interimResults = true;
       recognition.lang = 'ko-KR';
 
       recognition.onresult = (event) => {
         const results = event.results;
         const lastResult = results[results.length - 1];
-        
         if (lastResult.isFinal) {
           const transcript = lastResult[0].transcript.trim();
-          // 기존 텍스트랑 끝부분이 겹치면 중복 방지 처리
           setMemoText(prev => {
             if (prev.trim().endsWith(transcript)) return prev;
             return prev + (prev.length > 0 ? ' ' : '') + transcript;
@@ -134,11 +144,7 @@ const App = () => {
         }
       };
 
-      recognition.onend = () => {
-        // 에러나 자발적 종료 시 state와 맞춤 처리
-        setIsListening(false);
-      };
-
+      recognition.onend = () => setIsListening(false);
       recognitionRef.current = recognition;
     }
   }, []);
@@ -158,21 +164,28 @@ const App = () => {
     }
   };
 
-  const showError = (msg) => {
-    setErrorMessage(msg);
-    setTimeout(() => setErrorMessage(''), 3000);
-  };
-
+  // ══════════════════════════════════════════════════════
+  // [특명] 1공정·2공정 Webhook 완전 분리 배선 + 타임아웃 120s
+  // ══════════════════════════════════════════════════════
   const handleSendMemo = async () => {
     if (!memoText.trim()) return;
     setIsSending(true);
     setSheetError(false);
     setErrorMessage('데이터 저장 중...');
 
-    try {
-      const sheetWebhookUrl = "https://hook.eu2.make.com/easw4ekupjz4x53jyxbu4bovypej0jr3";
-      const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL || "https://hook.eu2.make.com/6stf1efcws7opes4d33snrse5clfy6m9";
+    // ▶ 1공정: VITE_MAKE_MEMO_URL (구글 시트 저장 전용)
+    const memoWebhookUrl = import.meta.env.VITE_MAKE_MEMO_URL;
+    // ▶ 2공정: VITE_MAKE_REPORT_URL (AI 보고서 생성 전용)
+    const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_URL;
 
+    if (!memoWebhookUrl || !reportWebhookUrl) {
+      console.error("🚨 환경변수 미설정! VITE_MAKE_MEMO_URL / VITE_MAKE_REPORT_URL 을 .env에 등록하십시오.");
+      setErrorMessage('🚨 Webhook 주소 미설정 — .env 확인 요망');
+      setIsSending(false);
+      return;
+    }
+
+    try {
       const payload = {
         id: Date.now(),
         text: memoText,
@@ -181,16 +194,20 @@ const App = () => {
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       };
 
-      // 1. 구글 시트 전송 (Await)
+      // ── 1공정: 구글 시트 저장 (타임아웃 120s / 단계별 상태 안내) ──
+      setErrorMessage('📋 1공정: 시트 저장 중...');
       try {
-        await axios.post(sheetWebhookUrl, payload, { timeout: 10000 });
+        await axios.post(memoWebhookUrl, payload, { timeout: 120000 });
         console.log("✅ 1공정 (구글 시트) 성공");
+        setErrorMessage('✅ 시트 저장 완료! 리포트 생성 중...');
       } catch (err) {
         console.error("🚨 1공정 실패:", err);
         setSheetError(true);
+        setErrorMessage('⚠️ 시트 저장 실패 — 리포트는 계속 진행합니다...');
       }
 
-      // 2. 리포트 생성 전송 (Await)
+      // ── 2공정: AI 보고서 생성 (타임아웃 120s / 단계별 상태 안내) ──
+      setErrorMessage('📝 2공정: 리포트 생성 중... (최대 2분 소요)');
       let finalReportData = null;
       try {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
@@ -207,11 +224,9 @@ const App = () => {
       setMemos(updatedMemos);
       localStorage.setItem('kimbanjang_memos', JSON.stringify(updatedMemos));
 
-      // 날짜별 보고서 이력 저장
       try {
         const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
-        const existingReportsStr = localStorage.getItem('kimbanjang_daily_reports') || '[]';
-        const existingReports = JSON.parse(existingReportsStr);
+        const existingReports = JSON.parse(localStorage.getItem('kimbanjang_daily_reports') || '[]');
         existingReports.push({
           date: todayStr,
           timestamp: new Date().toISOString(),
@@ -225,96 +240,67 @@ const App = () => {
 
       setErrorMessage('');
       setMemoText('');
-
-      // [팝업 겐타] 중앙 분석 결과 모달 띄우기
       setShowAIPanel(true);
 
-      // [간병 모드 알림] 앱에 메시지 전송
-      if (window.Kimbanjang) {
-        window.Kimbanjang.postMessage('care_alert');
-      }
+      if (window.Kimbanjang) window.Kimbanjang.postMessage('care_alert');
+
     } catch (e) {
-      console.error("Webhook Error Details:", e.response?.data || e.message || e);
+      console.error("Webhook Error:", e.response?.data || e.message || e);
       const serverStatus = e.response ? e.response.status : '네트워크 끊김 또는 CORS';
-      const errorData = e.response?.data ? (typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data)) : e.message;
-      
-      const errorText = `🚨 Make.com 전송 실패 🚨
+      const errorData = e.response?.data
+        ? (typeof e.response.data === 'string' ? e.response.data : JSON.stringify(e.response.data))
+        : e.message;
 
-상태 코드: ${serverStatus}
-상세 에러: ${errorData}
-
-* 브라우저 콘솔(F12)을 확인하시거나, Make.com 시나리오의 붉은색 에러 로그(History)를 점검해주세요. 특히 구글 시트 모듈 등에서 변수 매핑 문제가 없는지 확인 바랍니다.`;
-
-      setReportContent(errorText);
+      setReportContent(`🚨 Make.com 전송 실패 🚨\n\n상태 코드: ${serverStatus}\n상세 에러: ${errorData}\n\n* F12 콘솔 또는 Make.com History의 붉은 에러 로그를 확인하십시오.`);
       setShowAIPanel(true);
     } finally {
       setIsSending(false);
     }
   };
 
-  // 잡내 및 출력하지 않을 줄(일자, 구역 등) 부분 극단적 삭제 헬퍼 함수
+  // ══════════════════════════════════════════════════════
+  // 텍스트 정제 헬퍼
+  // ══════════════════════════════════════════════════════
   const cleanAiText = (val) => {
     if (typeof val !== 'string') return val;
-    
-    // 마크다운 별표(**) 제거 및 http/https URL 제거
     let cleaned = val.replace(/https?:\/\/[^\s]+/g, '').replace(/\*\*/g, '').trim();
-
-    // '일자', '날짜', '구역' 관련 라인 완전 삭제
     cleaned = cleaned.replace(/^.*(일자|날짜|구역)\s*[:：\s].*$/gm, '');
-
-    // 2024년 등 엉뚱한 날짜가 문장에 섞여 나오면 무조건 지워버림 (공백 치환)
     const dateRegex = /202\d\s*(?:년\s*(?:\d{1,2}\s*월\s*\d{1,2}\s*일?)?|[\-\.]\s*\d{1,2}[\-\.]\s*\d{1,2}[일\.]?)/g;
     cleaned = cleaned.replace(dateRegex, '');
-
-    // 삭제 후 생긴 잉여 줄바꿈 정리
     cleaned = cleaned.replace(/\n\s*\n/g, '\n').trim();
-
     return cleaned;
   };
 
   const formatReportContentForCopy = (data) => {
     if (!data) return '';
-    
     let cleanedStr = typeof data === 'string' ? cleanAiText(data) : '';
 
-    // 객체 데이터일 경우 스트링으로 덤프
     if (typeof data !== 'string') {
       const getVal = (val) => val ? cleanAiText(String(val)).trim() : '';
       cleanedStr = `공정:\n${getVal(data.공정)}\n\n안전:\n${getVal(data.안전)}\n\n● 특기: ${getVal(data.특기)}`;
     }
 
-    // 1. 엉뚱한 구간에서 줄 바꿈(엔터)이 발생한 것을 강제로 한 줄로 이어붙임
     const lines = cleanedStr.split('\n').map(l => l.trim()).filter(Boolean);
     let mergedLines = [];
     for (const line of lines) {
-      // 새로운 말머리나 제목으로 시작하는지 판별
       const isNewParagraph = /^(●|-|\*|\d+\.|공정|안전|특기)/.test(line);
-      
       if (isNewParagraph || mergedLines.length === 0) {
         mergedLines.push(line);
       } else {
-        // 말머리가 없으면 이전 문장의 끝부분 이므로 띄어쓰기로 합침 (카톡 줄바꿈 깨짐 방지)
         mergedLines[mergedLines.length - 1] += ' ' + line;
       }
     }
     cleanedStr = mergedLines.join('\n');
-
-    // 2. 카카오톡 최적화 포맷팅 (사진과 100% 동일한 양식)
-    // - 공정, 안전은 불릿 빼고 줄바꿈
     cleanedStr = cleanedStr.replace(/^[●\-\*\s]*(공정|안전)\s*[:：]\s*/gm, '\n$1:\n');
-    // - 특기는 앞에 불릿을 달고 단일 줄로 유지
     cleanedStr = cleanedStr.replace(/^[●\-\*\s]*(특기)\s*[:：]\s*/gm, '\n● 특기: ');
-
-    // 3. 중복 줄바꿈을 2칸으로 깔끔하게 정리
     return cleanedStr.replace(/\n{3,}/g, '\n\n').trim();
   };
 
   const handleCopy = async () => {
     try {
-      // 복사 시에는 맨 윗줄에 일자를 수동으로 포함시킵니다.
       const text = `일자: ${currentDate}\n\n` + formatReportContentForCopy(reportContent);
       await navigator.clipboard.writeText(text);
-      setErrorMessage('✅ 복사 완료!'); // toast ui 활용
+      setErrorMessage('✅ 복사 완료!');
     } catch (err) {
       console.error('복사 오류:', err);
       setErrorMessage('❌ 복사에 실패했습니다.');
@@ -325,66 +311,49 @@ const App = () => {
     try {
       const text = formatReportContentForCopy(reportContent);
       if (navigator.share) {
-        await navigator.share({
-          title: '현장 공정 일보',
-          text: text
-        });
+        await navigator.share({ title: '현장 공정 일보', text });
       } else {
         await navigator.clipboard.writeText(text);
-        setErrorMessage('공유 기능을 지원하지 않는 기기입니다. (자동 복사됨)');
+        setErrorMessage('공유 미지원 기기입니다. (자동 복사됨)');
       }
     } catch (err) {
-      console.error('공유 중단/오류:', err);
+      console.error('공유 오류:', err);
     }
   };
 
+  // ══════════════════════════════════════════════════════
+  // [UI 마감] 팝업 본문 렌더러 — 글자 14px + 수량 하이라이팅
+  // ══════════════════════════════════════════════════════
   const renderReportTable = (aiData) => {
     if (!aiData) return null;
-
     const formattedText = formatReportContentForCopy(aiData);
-    
-    // 개행 단위로 모든 라인을 개별 분리
     const lines = formattedText.split('\n').map(l => l.trim()).filter(Boolean);
 
-    // 사람, 장비 등 수량형 데이터 하이라이팅 처리
     const highlightNumbers = (text) => {
       const regex = /(\d+(?:\.\d+)?\s*(?:명|인|대|개|팀|건|조|톤|kg|m|cm|mm|식|루베|헤베))/g;
       const parts = text.split(regex);
-      return parts.map((part, i) => {
-        if (i % 2 === 1) {
-          return (
-            <strong key={i} style={{ fontWeight: '900', color: '#000' }}>
-              {part}
-            </strong>
-          );
-        }
-        return part;
-      });
+      return parts.map((part, i) =>
+        i % 2 === 1
+          ? <strong key={i} style={{ fontWeight: '900', color: '#000' }}>{part}</strong>
+          : part
+      );
     };
 
     return (
       <div style={{ width: '100%', padding: '0 2px' }}>
-        <style>{`
-          /* 리액트 인라인 style의 한계를 깨고 가장 강력하게 덮어쓰는 최종 강제 태그 */
-          .ultra-force-row {
-            font-size: 13px !important;
-            line-height: 1.4 !important;
-            word-break: keep-all !important;
-            white-space: normal !important;
-            text-align: left !important;
-          }
-        `}</style>
         {lines.map((line, idx) => {
           const isHeader = line.startsWith('●') || line.startsWith('공정') || line.startsWith('안전');
           return (
-            <div key={idx} className="ultra-force-row" style={{ 
-              marginTop: isHeader && idx !== 0 ? '20px' : '4px',
+            <div key={idx} style={{
+              marginTop: isHeader && idx !== 0 ? '18px' : '4px',
               fontWeight: isHeader ? '900' : 'normal',
-              paddingLeft: isHeader ? '0' : '8px',
-              fontSize: '13px',
-              lineHeight: '1.4',
+              paddingLeft: isHeader ? '0' : '10px',
+              /* ── [UI 마감] 본문 글자 14px 고정 ── */
+              fontSize: '14px',
+              lineHeight: '1.55',
               whiteSpace: 'normal',
-              wordBreak: 'keep-all'
+              wordBreak: 'keep-all',
+              color: '#111',
             }}>
               {highlightNumbers(line)}
             </div>
@@ -394,18 +363,21 @@ const App = () => {
     );
   };
 
+  // ══════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════
   return (
     <div className="app-container">
       {errorMessage && <div className="toast-msg">{errorMessage}</div>}
 
-      {/* ── 1. 상단 날짜 영역 (10% 높이 사수) ── */}
+      {/* ── 1. 날짜 헤더 ── */}
       <div className="date-header-industrial">
         <span className="industrial-date">{currentDate}</span>
       </div>
 
-      {/* ── 2. 중앙 음성 입력창 (45% 높이 사수) ── */}
+      {/* ── 2. 음성 입력창 ── */}
       <div className="memo-container-industrial">
-        <textarea 
+        <textarea
           className="memo-textarea-industrial"
           placeholder="현장 상황을 말해주이소..."
           value={memoText}
@@ -413,15 +385,15 @@ const App = () => {
         />
       </div>
 
-      {/* ── 3. 메인 액션 버튼 (25% 높이 사수) ── */}
+      {/* ── 3. 액션 버튼 ── */}
       <div className="action-row-industrial">
-        <button 
+        <button
           className={`btn-mic-industrial ${isListening ? 'listening' : ''}`}
           onClick={toggleListening}
         >
           <Mic size={40} />
         </button>
-        <button 
+        <button
           className="btn-send-industrial-orange"
           onClick={handleSendMemo}
           disabled={!memoText.trim() || isSending}
@@ -430,13 +402,13 @@ const App = () => {
         </button>
       </div>
 
-      {/* ── 팝업 겐타 (정식 결재판 모달) ── */}
+      {/* ── 팝업 겐타 (정식 결재판) ── */}
       <AnimatePresence>
         {showAIPanel && reportContent && (
-          <motion.div 
-            className="modal-overlay" 
-            initial={{ opacity: 0 }} 
-            animate={{ opacity: 1 }} 
+          <motion.div
+            className="modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setShowAIPanel(false)}
             style={{
@@ -444,86 +416,81 @@ const App = () => {
               backgroundColor: 'rgba(0,0,0,0.85)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               zIndex: 999999,
-              padding: '0 1%' // 양옆 여백을 아주 미세하게만 줌
+              padding: '0 1%',
             }}
           >
-            <style>{`
-              .ultra-force-modal {
-                width: 100% !important;
-                max-width: 800px !important;
-                margin: 0 !important;
-                padding: 10px !important; 
-              }
-            `}</style>
-            <motion.div 
-              className="modal-content ultra-force-modal"
-              style={{ 
-                background: '#FFFDF0', // 눈이 편안한 아이보리/미색
+            <motion.div
+              className="modal-content"
+              style={{
+                background: '#FFFDF0',
                 borderRadius: '8px',
                 width: '100%',
                 maxWidth: '800px',
-                padding: '10px',
+                padding: '0',
                 margin: '0',
-                maxHeight: '94vh', 
+                maxHeight: '94vh',
                 display: 'flex',
                 flexDirection: 'column',
                 boxShadow: '0 15px 35px rgba(0,0,0,0.5)',
-                overflow: 'hidden'
+                overflow: 'hidden',
               }}
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* 우측 상단 닫기 X 아이콘 및 헤더 (Image 2 스타일) */}
-              <div style={{ background: '#3A3A3A', padding: '16px 20px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
-                <span style={{ color: '#fff', fontSize: '1.1rem', fontWeight: 'bold' }}>현장 보고서</span>
-                <button 
+              {/* 헤더 */}
+              <div style={{
+                background: '#3A3A3A', padding: '14px 20px',
+                display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative',
+                flexShrink: 0,
+              }}>
+                <span style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 'bold' }}>현장 보고서</span>
+                <button
                   onClick={() => setShowAIPanel(false)}
-                  style={{ position: 'absolute', right: '15px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: '0', display: 'flex' }}
+                  style={{ position: 'absolute', right: '15px', background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', padding: 0, display: 'flex' }}
                 >
                   <X size={24} />
                 </button>
               </div>
 
-              {/* 본문 (베이지색 페이퍼 영역) */}
-              <div style={{ padding: '0px 2px', overflowY: 'auto', flex: 1 }}>
-                
-                <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#111', margin: '0 0 10px 0', paddingLeft: '4px' }}>
+              {/* 본문 스크롤 영역 — 좌우 패딩 최소화로 문장 최대폭 확보 */}
+              <div style={{ padding: '12px 4px 0', overflowY: 'auto', flex: 1, fontSize: '14px' }}>
+
+                {/* [UI 마감] 일자 — 한 줄 강제 인라인 고정 */}
+                <div style={{
+                  fontSize: '16px',
+                  fontWeight: '900',
+                  color: '#111',
+                  margin: '0 0 8px 0',
+                  paddingLeft: '4px',
+                  whiteSpace: 'nowrap',       /* ← 줄바꿈 절대 불가 */
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: '1.3',
+                }}>
                   일자: {currentDate}
-                </h2>
-                <div style={{ borderBottom: '2px solid #222', marginBottom: '16px' }}></div>
+                </div>
+
+                <div style={{ borderBottom: '2px solid #222', marginBottom: '14px' }} />
 
                 {renderReportTable(reportContent)}
 
-                <div style={{ marginTop: '24px' }}>
+                {/* 하단 버튼 영역 */}
+                <div style={{ marginTop: '20px', paddingBottom: '12px' }}>
                   {sheetError && (
-                    <div style={{ 
-                      textAlign: 'center', 
-                      color: '#E87A30', 
-                      fontSize: '12px', 
-                      fontWeight: 'bold', 
-                      marginBottom: '8px' 
-                    }}>
-                      ⚠️ 시트 저장 실패(관리자 문의)
+                    <div style={{ textAlign: 'center', color: '#E87A30', fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>
+                      ⚠️ 1공정 시트 저장 실패 — 관리자 문의
                     </div>
                   )}
-                  <button 
-                    style={{ 
-                      width: '100%', 
-                      padding: '12px',     // 화면 가리지 않게 버튼 크기 적당히 조절
-                      borderRadius: '10px', 
-                      background: '#E87A30', 
-                      color: '#fff', 
-                      fontSize: '1.2rem', 
-                      fontWeight: 'bold', 
-                      border: 'none', 
-                      cursor: 'pointer', 
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '8px'
-                    }} 
+                  <button
+                    style={{
+                      width: '100%', padding: '13px',
+                      borderRadius: '10px', background: '#E87A30',
+                      color: '#fff', fontSize: '1.15rem', fontWeight: 'bold',
+                      border: 'none', cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                    }}
                     onClick={handleCopy}
                   >
                     📋 복사하기
