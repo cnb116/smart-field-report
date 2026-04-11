@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Mic, 
+import {
+  Mic,
   Loader2,
   X
 } from 'lucide-react';
@@ -40,7 +40,7 @@ const App = () => {
     }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
+
     const prompt = `역할: 대기업 건설 현장 전문 공정 관리관
 미션: 투박한 현장 메모를 [전문가가 작성한 고품격 공정 보고서]로 변환하십시오.
 
@@ -90,12 +90,12 @@ const App = () => {
       let result = res.data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
       result = result.replace(/```json|```/g, "").trim();
       const parsed = JSON.parse(result);
-      
-      try { 
+
+      try {
         const copyText = `일자: ${parsed.일자}\n● 구역: ${parsed.구역}\n● 공정: ${parsed.공정}\n● 안전: ${parsed.안전}\n● 특기: ${parsed.특기}`;
-        if (navigator.clipboard) await navigator.clipboard.writeText(copyText); 
-      } catch (e) {}
-      
+        if (navigator.clipboard) await navigator.clipboard.writeText(copyText);
+      } catch (e) { }
+
       return parsed;
     } catch (e) {
       console.error("AI 분석 오류:", e);
@@ -234,7 +234,7 @@ const App = () => {
           report: finalReportData
         });
         localStorage.setItem('kimbanjang_daily_reports', JSON.stringify(existingReports));
-      } catch(err) {
+      } catch (err) {
         console.error('보고서 이력 저장 오류:', err);
       }
 
@@ -353,7 +353,7 @@ const App = () => {
               lineHeight: '1.55',
               whiteSpace: 'normal',
               wordBreak: 'keep-all',
-              color: '#111',
+              color: '#333333',
             }}>
               {highlightNumbers(line)}
             </div>
@@ -422,7 +422,8 @@ const App = () => {
             <motion.div
               className="modal-content"
               style={{
-                background: '#FFFDF0',
+                background: '#ffffff',
+                color: '#333333',
                 borderRadius: '8px',
                 width: '100%',
                 maxWidth: '800px',
@@ -455,13 +456,13 @@ const App = () => {
               </div>
 
               {/* 본문 스크롤 영역 — 좌우 패딩 최소화로 문장 최대폭 확보 */}
-              <div style={{ padding: '12px 4px 0', overflowY: 'auto', flex: 1, fontSize: '14px' }}>
+              <div style={{ padding: '12px 4px 0', overflowY: 'auto', flex: 1, fontSize: '14px', color: '#333333' }}>
 
                 {/* [UI 마감] 일자 — 한 줄 강제 인라인 고정 */}
                 <div style={{
                   fontSize: '16px',
                   fontWeight: '900',
-                  color: '#111',
+                  color: '#333333',
                   margin: '0 0 8px 0',
                   paddingLeft: '4px',
                   whiteSpace: 'nowrap',       /* ← 줄바꿈 절대 불가 */
