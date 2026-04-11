@@ -167,76 +167,47 @@ const App = () => {
     if (!memoText.trim()) return;
     setIsSending(true);
     setSheetError(false);
+    setErrorMessage('데이터 저장 중...');
 
     try {
-      // 1공정(구글 시트) / 2공정(리포트 생성) 웹훅 각각 준비
-      // Vercel 자체 환경 변수가 이전 값(6stf...)을 쥐고 안 놔줄 위험이 있어, 1공정은 무조건 하드코딩된 주소로만 직행하게 강제 배선함.
       const sheetWebhookUrl = "https://hook.eu2.make.com/easw4ekupjz4x53jyxbu4bovypej0jr3";
-      // 2공정은 하드코딩 폴백을 거치도록 유지
       const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_WEBHOOK_URL || "https://hook.eu2.make.com/6stf1efcws7opes4d33snrse5clfy6m9";
 
-      if (!reportWebhookUrl) {
-        console.error("🚨 VITE_MAKE_REPORT_WEBHOOK_URL이 설정되지 않았습니다!");
-      }
-
-      // Make.com 구글 시트 시나리오 및 제미나이 생성 시나리오 양측 호환을 위해 값 짱짱하게 채움
       const payload = {
         id: Date.now(),
-        text: memoText,             // 구글 시트 매핑용 과거 키값
-        raw_content: memoText,      // 리포트 생성용 신규 키값
+        text: memoText,
+        raw_content: memoText,
         timestamp: new Date().toISOString(),
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       };
 
-      console.log("🚀 Make.com 전송 시작 (Payload):", payload);
-
-      // (1공정) 구글 시트에 원본 데이터 전송 - 비동기로 바로 던져서 지연 최소화
-      if (sheetWebhookUrl) {
-        axios.post(sheetWebhookUrl, payload, { 
-          timeout: 10000,
-          headers: { 'Content-Type': 'application/json' }
-        }).then((res) => {
-          console.log("✅ 1공정 (구글 시트 전송) 성공:", res.data);
-        }).catch((err) => {
-          console.error("🚨 1공정 (구글 시트 전송) 실패:", err);
-          setSheetError(true);
-        });
-      } else {
-        console.warn("🚨 VITE_MAKE_MEMO_WEBHOOK_URL (1공정) 주소가 누락되었습니다!");
+      // 1. 구글 시트 전송 (Await)
+      try {
+        await axios.post(sheetWebhookUrl, payload, { timeout: 10000 });
+        console.log("✅ 1공정 (구글 시트) 성공");
+      } catch (err) {
+        console.error("🚨 1공정 실패:", err);
+        setSheetError(true);
       }
 
+      // 2. 리포트 생성 전송 (Await)
       let finalReportData = null;
-
-      // (2공정) 리포트 팝업 생성(제미나이 활용) 전송 후 결과 대기
-      if (reportWebhookUrl) {
-        const response = await axios.post(reportWebhookUrl, payload, { 
-          timeout: 120000,
-          headers: { 'Content-Type': 'application/json' }
-        });
-        console.log("✅ 2공정 (리포트 생성) 성공:", response.data);
-        
-        // Make.com 응답 안의 result 반영 (없으면 전체 반영)
-        if (response.data && response.data.result) {
-          finalReportData = response.data.result;
-        } else if (response.data) {
-          finalReportData = response.data;
-        }
+      try {
+        const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
+        finalReportData = response.data?.result || response.data;
+        console.log("✅ 2공정 (리포트 생성) 성공");
+      } catch (err) {
+        console.error("🚨 2공정 실패:", err);
+        throw new Error("리포트 생성 서버 응답 없음");
       }
 
       setReportContent(finalReportData);
-
-      const newMemo = {
-        id: Date.now(),
-        text: memoText,
-        make_response: finalReportData,
-        time: payload.time
-      };
-
+      const newMemo = { id: Date.now(), text: memoText, make_response: finalReportData, time: payload.time };
       const updatedMemos = [newMemo, ...memos];
       setMemos(updatedMemos);
       localStorage.setItem('kimbanjang_memos', JSON.stringify(updatedMemos));
-      
-      // ✅ 나중에 이력을 볼 수 있게 로컬 스토리지에 날짜별로 저장하는 로직 추가
+
+      // 날짜별 보고서 이력 저장
       try {
         const todayStr = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '-').replace('.', '');
         const existingReportsStr = localStorage.getItem('kimbanjang_daily_reports') || '[]';
@@ -249,9 +220,10 @@ const App = () => {
         });
         localStorage.setItem('kimbanjang_daily_reports', JSON.stringify(existingReports));
       } catch(err) {
-         console.error('보고서 이력 저장 오류:', err);
+        console.error('보고서 이력 저장 오류:', err);
       }
 
+      setErrorMessage('');
       setMemoText('');
 
       // [팝업 겐타] 중앙 분석 결과 모달 띄우기
