@@ -52,38 +52,72 @@ function correctTypos(text) {
 }
 
 // ════════════════════════════════════════════════════
-//  normalizeReport — 어떤 JSON 구조가 와도 안전하게 파싱
-//  A) { process:[...], safety:[...] }  (영문 키)
-//  B) { 공정:[...], 안전:[...] }        (한글 키)
-//  C) { process:"항목1\n항목2" }        (문자열)
-//  D) { report:{ ... } }              (중첩)
-//  E) [{ ... }]                       (배열)
+//  normalizeReport — 완전 방어 파싱
+//  A) { process:[...], safety:[...] }         영문 키 배열
+//  B) { 공정:[...], 안전:[...], 공정현황:... }  한글 키 확장
+//  C) { process:"항목1\n항목2" }               문자열 → 분리
+//  D) { report:{...} } / { result:{...} }     중첩 래퍼
+//  E) [{...}]                                배열 첫 요소
+//  F) "```json\n{...}\n```"                   마크다운 코드블록
 // ════════════════════════════════════════════════════
 function toArray(val) {
   if (!val) return [];
   if (Array.isArray(val)) return val.map(String).filter(Boolean);
-  if (typeof val === 'string') return val.split(/\n|,|•|ㆍ/).map(s => s.trim()).filter(Boolean);
+  if (typeof val === 'string')
+    return val.split(/\n|[,•ㆍ]/).map(s => s.trim()).filter(Boolean);
   if (typeof val === 'object') return Object.values(val).map(String).filter(Boolean);
   return [String(val)];
 }
 
 function normalizeReport(raw) {
   if (!raw) return null;
+
+  // F) 문자열로 온 경우 (마크다운 코드블록 포함)
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    } catch {
+      // 파싱 실패 시 전체를 공정 텍스트로
+      return { date: '', weather: '', process: [raw], safety: [], special: [], summary: '', _raw: raw };
+    }
+  }
+
   // E) 배열이면 첫 번째 요소
   if (Array.isArray(raw)) raw = raw[0] ?? {};
-  // D) 중첩 report 키
+
+  // D) 중첩 래퍼 벗기기
   if (raw.report && typeof raw.report === 'object') raw = raw.report;
-  // D-2) 중첩 result 키 (Make.com 응답 패턴)
   if (raw.result && typeof raw.result === 'object') raw = raw.result;
+  if (raw.data   && typeof raw.data   === 'object') raw = raw.data;
 
-  const date    = raw.date    ?? raw['일자'] ?? raw['날짜'] ?? '';
-  const weather = raw.weather ?? raw['날씨'] ?? '';
-  const process = toArray(raw.process ?? raw['공정'] ?? raw.work  ?? raw['작업']);
-  const safety  = toArray(raw.safety  ?? raw['안전'] ?? raw.safetyIssue ?? raw['안전사항']);
-  const special = toArray(raw.special ?? raw['특기'] ?? raw.note  ?? raw['기타']);
-  const summary = raw.summary ?? raw['요약'] ?? raw['종합'] ?? '';
+  console.log('%c[정규화 입력]', 'color:#9c27b0;font-weight:bold', raw);
 
-  return { date, weather, process, safety, special, summary };
+  const date    = raw.date    ?? raw['일자']   ?? raw['날짜']   ?? '';
+  const weather = raw.weather ?? raw['날씨']   ?? '';
+
+  // 공정: 영문/한글/확장 한글 키 전부 시도
+  const process = toArray(
+    raw.process ?? raw['공정'] ?? raw['공정현황'] ?? raw['작업내용']
+    ?? raw.work ?? raw['작업'] ?? raw['작업현황']
+  );
+
+  // 안전: 영문/한글/확장 한글 키 전부 시도
+  const safety = toArray(
+    raw.safety ?? raw['안전'] ?? raw['안전사항'] ?? raw['안전현황']
+    ?? raw.safetyIssue ?? raw['안전점검']
+  );
+
+  // 특기: 영문/한글 키
+  const special = toArray(
+    raw.special ?? raw['특기'] ?? raw['특이사항'] ?? raw['비고']
+    ?? raw.note ?? raw['기타']
+  );
+
+  const summary = raw.summary ?? raw['요약'] ?? raw['종합'] ?? raw['총평'] ?? '';
+
+  const result = { date, weather, process, safety, special, summary, _raw: raw };
+  console.log('%c[정규화 결과]', 'color:#4caf50;font-weight:bold', result);
+  return result;
 }
 
 // ════════════════════════════════════════════════════
@@ -141,6 +175,7 @@ const App = () => {
   const [showModal, setShowModal]   = useState(false);
   const [sheetError, setSheetError] = useState(false);
   const [copied, setCopied]         = useState(false);
+  const [showDebug, setShowDebug]   = useState(false);
 
   const recognitionRef = useRef(null);
   const memoTextRef    = useRef(memoText);
@@ -400,6 +435,29 @@ const App = () => {
                     {report.summary}
                   </p>
                 )}
+
+                {/* ▼ 원본 JSON 디버그 패널 */}
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    onClick={() => setShowDebug(v => !v)}
+                    style={{
+                      background: 'none', border: '1px solid #ccc', borderRadius: 6,
+                      fontSize: 11, color: '#888', cursor: 'pointer', padding: '3px 10px',
+                    }}
+                  >
+                    {showDebug ? '▲ 원본 JSON 닫기' : '▼ 원본 JSON 보기 (디버그)'}
+                  </button>
+                  {showDebug && (
+                    <pre style={{
+                      marginTop: 8, padding: '10px 12px',
+                      background: '#1e1e1e', color: '#9cdcfe',
+                      borderRadius: 8, fontSize: 11, lineHeight: 1.6,
+                      overflowX: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
+                    }}>
+                      {JSON.stringify(report._raw, null, 2)}
+                    </pre>
+                  )}
+                </div>
 
                 {/* 하단 버튼 영역 */}
                 <div style={{ marginTop: 20, paddingBottom: 14 }}>
