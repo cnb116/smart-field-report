@@ -4,12 +4,20 @@ import { Mic, Loader2, X } from 'lucide-react';
 import './index.css';
 
 // ════════════════════════════════════════════════════
-//  배선 정보 — .env / Vercel 변수명과 1:1 일치
+//  배선 정보 — 환경변수 우선, 없으면 URL 직결 폴백
 //  1공정: VITE_MAKE_MEMO_URL   → 구글 시트 저장
 //  2공정: VITE_MAKE_REPORT_URL → Gemini 리포트 생성
 // ════════════════════════════════════════════════════
-const MEMO_URL   = import.meta.env.VITE_MAKE_MEMO_URL;
-const REPORT_URL = import.meta.env.VITE_MAKE_REPORT_URL;
+const MEMO_URL   = import.meta.env.VITE_MAKE_MEMO_URL
+                || 'https://hook.eu2.make.com/easw4ekupjz4x53jyxbu4bovypej0jr3';
+const REPORT_URL = import.meta.env.VITE_MAKE_REPORT_URL
+                || 'https://hook.eu2.make.com/6stf1efcws7opes4d33snrse5clfy6m9';
+
+// ── 앱 시작 시 배선 점검 자동 출력 ──
+console.log('%c[배선 점검]', 'color:#E87A30;font-weight:bold;font-size:13px',
+  '\n1공정 MEMO_URL   :', MEMO_URL,
+  '\n2공정 REPORT_URL :', REPORT_URL,
+);
 
 // ════════════════════════════════════════════════════
 //  음성 오타 자동 교정 — 현장 수칙
@@ -208,16 +216,18 @@ const App = () => {
     // ── 1공정: 구글 시트 저장 ──────────────────────
     setToastMsg('📋 1공정: 시트 저장 중...');
     try {
+      console.log('%c[1공정 시작]', 'color:#1a73e8;font-weight:bold', 'URL:', MEMO_URL, '\n데이터:', payload);
       const r1 = await fetch(MEMO_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(120000),
       });
+      console.log('%c[1공정 응답]', 'color:#34a853;font-weight:bold', 'HTTP', r1.status);
       if (!r1.ok) throw new Error(`HTTP ${r1.status}`);
       setToastMsg('✅ 시트 저장 완료! 리포트 생성 중...');
     } catch (err) {
-      console.error('🚨 1공정 실패:', err);
+      console.error('%c[1공정 에러]', 'color:#e53935;font-weight:bold', err.message, '\nURL:', MEMO_URL, '\n데이터:', payload);
       setSheetError(true);
       setToastMsg('⚠️ 시트 저장 실패 — 리포트는 계속 진행합니다...');
     }
