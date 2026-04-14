@@ -114,8 +114,9 @@ const App = () => {
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             finalCleaned.공정 = (parsed.공정 || '')
-              .replace(/,?\s*특기\s*[:：]\s*[^\n]*/g, '')
-              .replace(/,?\s*특이사항\s*없음/g, '')
+              .replace(/[,，]?\s*특기\s*[:：\-]\s*.*/gs, '')
+              .replace(/[,，]?\s*특이사항\s*없음.*/gs, '')
+              .replace(/\s*,\s*$/g, '')
               .trim();
             finalCleaned.특기 = parsed.특기 || '특이사항 없음';
           } else { throw new Error("Not JSON"); }
