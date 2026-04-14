@@ -102,7 +102,7 @@ const App = () => {
         
         // 🔥 Gemini 원문에서 찌꺼기 선제 제거
         if (typeof rawResult === 'string') {
-          rawResult = rawResult.replace(/,특기:[^\n"}]*/g, '');
+          rawResult = rawResult.replace(/[,，]?\s*특기\s*[:：]\s*[^"}\n]*/g, '');
         } else if (rawResult?.공정) {
           rawResult.공정 = rawResult.공정
             .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
