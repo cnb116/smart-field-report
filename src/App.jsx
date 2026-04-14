@@ -130,17 +130,19 @@ const App = () => {
             const raw공정 = parsed.공정 || '';
             finalCleaned.공정 = raw공정
               .split(/[,，]?\s*특기\s*[:：]/)[0]
-              .replace(/[,，]?\s*특이사항\s*없음/g, '')
-              .replace(/\s*[,，]\s*$/g, '')
+              .split('특기:')[0]
+              .split(',특기')[0]
+              .replace(/\s*,\s*$/, '')
               .trim();
             finalCleaned.특기 = parsed.특기 || '특이사항 없음';
           } else { throw new Error("Not JSON"); }
         } catch (e) {
           finalCleaned.공정 = textToParse
-            .split(/[,，]?\s*특기\s*[:：]/)[0]
-            .replace(/[,，]?\s*특이사항\s*없음/g, '')
             .replace(/["'{}]/g, '')
-            .replace(/\s*[,，]\s*$/g, '')
+            .split(/[,，]?\s*특기\s*[:：]/)[0]
+            .split('특기:')[0]
+            .split(',특기')[0]
+            .replace(/\s*,\s*$/, '')
             .trim();
           finalCleaned.특기 = '특이사항 없음';
         }
