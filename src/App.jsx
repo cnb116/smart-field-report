@@ -109,19 +109,20 @@ const App = () => {
         textToParse = textToParse.replace(/\*\*/g, '').replace(/\\n/g, '\n');
 
         try {
-          const jsonMatch = textToParse.match(/\{[\s\S]*?\}/);
+          // 탐욕적 매칭으로 전체 JSON 완전히 잡기
+          const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            // 공정에서 특기 찌꺼기 완전 제거
             finalCleaned.공정 = (parsed.공정 || '')
-              .replace(/,?\s*특기\s*[:：]\s*특이사항\s*없음/g, '')
-              .replace(/,?\s*특기\s*[:：][^\n]*/g, '')
+              .replace(/,?\s*특기\s*[:：]\s*[^\n]*/g, '')
+              .replace(/,?\s*특이사항\s*없음/g, '')
               .trim();
             finalCleaned.특기 = parsed.특기 || '특이사항 없음';
           } else { throw new Error("Not JSON"); }
         } catch (e) {
           finalCleaned.공정 = textToParse
             .replace(/,?\s*특기\s*[:：][^\n]*/g, '')
+            .replace(/,?\s*특이사항\s*없음/g, '')
             .replace(/["'{}]/g, '').trim();
           finalCleaned.특기 = '특이사항 없음';
         }
