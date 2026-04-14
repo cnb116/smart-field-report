@@ -100,12 +100,17 @@ const App = () => {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
         rawResult = response.data?.result || response.data;
         
-        // 🔥 Gemini 원문에서 찌꺼기 선제 제거
+        // 🔥 찌꺼기 선제 차단 — 문자열 전체에서 싹 도려냄
         if (typeof rawResult === 'string') {
-          rawResult = rawResult.replace(/[,，]?\s*특기\s*[:：]\s*[^"}\n]*/g, '');
-        } else if (rawResult?.공정) {
-          rawResult.공정 = rawResult.공정
-            .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
+          rawResult = rawResult
+            .replace(/,\s*특기\s*[:：][^"}\n]*/g, '')
+            .replace(/특기\s*[:：]\s*특이사항\s*없음/g, '');
+        } else if (typeof rawResult === 'object' && rawResult !== null) {
+          const str = JSON.stringify(rawResult);
+          const cleaned = str
+            .replace(/,\s*특기\s*[:：][^"}\n]*/g, '')
+            .replace(/특기\s*[:：]\s*특이사항\s*없음/g, '');
+          rawResult = JSON.parse(cleaned);
         }
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
