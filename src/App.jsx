@@ -99,6 +99,14 @@ const App = () => {
       try {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
         rawResult = response.data?.result || response.data;
+        
+        // 🔥 Gemini 원문에서 찌꺼기 선제 제거
+        if (typeof rawResult === 'string') {
+          rawResult = rawResult.replace(/,특기:[^\n"}]*/g, '');
+        } else if (rawResult?.공정) {
+          rawResult.공정 = rawResult.공정
+            .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
+        }
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
       // 🚨 정제기: 공정 / 특기만 추출
