@@ -113,18 +113,22 @@ const App = () => {
           const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            finalCleaned.공정 = (parsed.공정 || '')
-              .replace(/[,，]?\s*특기\s*[:：\-]\s*.*/gs, '')
-              .replace(/[,，]?\s*특이사항\s*없음.*/gs, '')
-              .replace(/\s*,\s*$/g, '')
+            // split()으로 특기: 이후 통째로 잘라내기 — 가장 확실한 방법
+            const raw공정 = parsed.공정 || '';
+            finalCleaned.공정 = raw공정
+              .split(/[,，]?\s*특기\s*[:：]/)[0]
+              .replace(/[,，]?\s*특이사항\s*없음/g, '')
+              .replace(/\s*[,，]\s*$/g, '')
               .trim();
             finalCleaned.특기 = parsed.특기 || '특이사항 없음';
           } else { throw new Error("Not JSON"); }
         } catch (e) {
           finalCleaned.공정 = textToParse
-            .replace(/,?\s*특기\s*[:：][^\n]*/g, '')
-            .replace(/,?\s*특이사항\s*없음/g, '')
-            .replace(/["'{}]/g, '').trim();
+            .split(/[,，]?\s*특기\s*[:：]/)[0]
+            .replace(/[,，]?\s*특이사항\s*없음/g, '')
+            .replace(/["'{}]/g, '')
+            .replace(/\s*[,，]\s*$/g, '')
+            .trim();
           finalCleaned.특기 = '특이사항 없음';
         }
       }
