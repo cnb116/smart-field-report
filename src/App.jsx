@@ -109,25 +109,18 @@ const App = () => {
 
       let finalCleaned = { 공정: '', 특기: '' };
 
-      // 🔥 ||| 구분자 방식 처리
-      if (typeof rawResult === 'string' && rawResult.includes('|||')) {
-        const parts = rawResult.split('|||');
-        finalCleaned.공정 = parts[0].replace(/^"/, '').trim();
-        finalCleaned.특기 = (parts[1] || '특이사항 없음')
-          .replace(/"$/, '').trim();
-      } else if (rawResult?.공정) {
-        finalCleaned.공정 = (rawResult.공정)
-          .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
-        finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
-      } else {
-        let textToParse = typeof rawResult === 'string'
-          ? rawResult : JSON.stringify(rawResult);
-        const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]);
-          finalCleaned.공정 = (parsed.공정 || '')
-            .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
-          finalCleaned.특기 = parsed.특기 || '특이사항 없음';
+      if (rawResult) {
+        const resultStr = typeof rawResult === 'string' 
+          ? rawResult 
+          : JSON.stringify(rawResult);
+          
+        if (resultStr.includes('|||')) {
+          const parts = resultStr.replace(/^"|"$/g, '').split('|||');
+          finalCleaned.공정 = parts[0].trim();
+          finalCleaned.특기 = (parts[1] || '특이사항 없음').trim();
+        } else if (rawResult?.공정) {
+          finalCleaned.공정 = rawResult.공정.split(/,?\s*특기\s*[:：]/)[0].trim();
+          finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
         }
       }
 
