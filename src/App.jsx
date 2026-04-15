@@ -110,6 +110,7 @@ const App = () => {
         } else {
           rawResult = raw;
         }
+        console.log('🔍 rawResult:', JSON.stringify(rawResult));
         
         // 🔥 찌꺼기 선제 차단 — 문자열 전체에서 싹 도려냄
         if (typeof rawResult === 'string') {
