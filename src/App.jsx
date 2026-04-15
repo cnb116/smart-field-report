@@ -103,7 +103,13 @@ const App = () => {
       let rawResult = null;
       try {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
-        rawResult = response.data?.result || response.data;
+        const raw = response.data?.result || response.data;
+        // Make.com Result 객체면 바로 사용
+        if (raw?.공정) {
+          rawResult = raw;
+        } else {
+          rawResult = raw;
+        }
         
         // 🔥 찌꺼기 선제 차단 — 문자열 전체에서 싹 도려냄
         if (typeof rawResult === 'string') {
@@ -131,15 +137,18 @@ const App = () => {
           const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
-            // split()으로 특기: 이후 통째로 잘라내기 — 가장 확실한 방법
-            const raw공정 = parsed.공정 || '';
-            finalCleaned.공정 = raw공정
+            finalCleaned.공정 = (parsed.공정 || '')
               .split(/[,，]?\s*특기\s*[:：]/)[0]
-              .split('특기:')[0]
-              .split(',특기')[0]
               .replace(/\s*,\s*$/, '')
               .trim();
             finalCleaned.특기 = parsed.특기 || '특이사항 없음';
+          } else if (rawResult?.공정) {
+            // 🔥 Result 객체 직접 사용 — 파싱 불필요!
+            finalCleaned.공정 = (rawResult.공정 || '')
+              .split(/[,，]?\s*특기\s*[:：]/)[0]
+              .replace(/\s*,\s*$/, '')
+              .trim();
+            finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
           } else { throw new Error("Not JSON"); }
         } catch (e) {
           finalCleaned.공정 = textToParse
