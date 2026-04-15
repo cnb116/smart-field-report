@@ -110,17 +110,25 @@ const App = () => {
       let finalCleaned = { 공정: '', 특기: '' };
 
       if (rawResult) {
-        const resultStr = typeof rawResult === 'string' 
-          ? rawResult 
-          : JSON.stringify(rawResult);
-          
-        if (resultStr.includes('|||')) {
-          const parts = resultStr.replace(/^"|"$/g, '').split('|||');
-          finalCleaned.공정 = parts[0].trim();
-          finalCleaned.특기 = (parts[1] || '특이사항 없음').trim();
-        } else if (rawResult?.공정) {
-          finalCleaned.공정 = rawResult.공정.split(/,?\s*특기\s*[:：]/)[0].trim();
-          finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
+        // rawResult.공정이 바로 있으면 직접 사용
+        if (rawResult['공정']) {
+          finalCleaned.공정 = String(rawResult['공정'])
+            .split(/,?\s*특기\s*[:：]/)[0]
+            .replace(/,\s*$/, '').trim();
+          finalCleaned.특기 = String(rawResult['특기'] || '특이사항 없음').trim();
+        } else {
+          // 문자열로 변환 후 파싱
+          const txt = typeof rawResult === 'string' 
+            ? rawResult : JSON.stringify(rawResult);
+          const m = txt.match(/"공정"\s*:\s*"([\s\S]*?)"\s*,\s*"특기"/);
+          if (m) {
+            finalCleaned.공정 = m[1]
+              .replace(/\\n/g, '\n')
+              .split(/,?\s*특기\s*[:：]/)[0]
+              .trim();
+          }
+          const m2 = txt.match(/"특기"\s*:\s*"([\s\S]*?)"/);
+          finalCleaned.특기 = m2 ? m2[1].trim() : '특이사항 없음';
         }
       }
 
