@@ -103,64 +103,31 @@ const App = () => {
       let rawResult = null;
       try {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
-        const raw = response.data?.result || response.data;
-        // Make.com Result 객체면 바로 사용
-        if (raw?.공정) {
-          rawResult = raw;
-        } else {
-          rawResult = raw;
-        }
+        rawResult = response.data?.result || response.data;
         console.log('🔍 rawResult:', JSON.stringify(rawResult));
-        
-        // 🔥 찌꺼기 선제 차단 — 문자열 전체에서 싹 도려냄
-        if (typeof rawResult === 'string') {
-          rawResult = rawResult
-            .replace(/,\s*특기\s*[:：][^"}\n]*/g, '')
-            .replace(/특기\s*[:：]\s*특이사항\s*없음/g, '');
-        } else if (typeof rawResult === 'object' && rawResult !== null) {
-          const str = JSON.stringify(rawResult);
-          const cleaned = str
-            .replace(/,\s*특기\s*[:：][^"}\n]*/g, '')
-            .replace(/특기\s*[:：]\s*특이사항\s*없음/g, '');
-          rawResult = JSON.parse(cleaned);
-        }
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
-      // 🔥 Result 객체 직접 처리 — stringify 없이 바로 사용
       let finalCleaned = { 공정: '', 특기: '' };
 
-      if (rawResult?.공정) {
-        // Make.com이 이미 파싱된 객체로 보낸 경우 (가장 깔끔)
-        finalCleaned.공정 = rawResult.공정
-          .split(/[,，]?\s*특기\s*[:：]/)[0]
-          .replace(/\s*,\s*$/, '')
-          .trim();
+      // 🔥 ||| 구분자 방식 처리
+      if (typeof rawResult === 'string' && rawResult.includes('|||')) {
+        const parts = rawResult.split('|||');
+        finalCleaned.공정 = parts[0].replace(/^"/, '').trim();
+        finalCleaned.특기 = (parts[1] || '특이사항 없음')
+          .replace(/"$/, '').trim();
+      } else if (rawResult?.공정) {
+        finalCleaned.공정 = (rawResult.공정)
+          .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
         finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
-
       } else {
-        // 문자열로 온 경우
         let textToParse = typeof rawResult === 'string'
           ? rawResult : JSON.stringify(rawResult);
-        textToParse = textToParse
-          .replace(/https?:\/\/[a-zA-Z0-9.\/_-]+/g, '')
-          .replace(/\*\*/g, '')
-          .replace(/\\n/g, '\n');
-
-        try {
-          const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            finalCleaned.공정 = (parsed.공정 || '')
-              .split(/[,，]?\s*특기\s*[:：]/)[0]
-              .replace(/\s*,\s*$/, '')
-              .trim();
-            finalCleaned.특기 = parsed.특기 || '특이사항 없음';
-          }
-        } catch (e) {
-          finalCleaned.공정 = textToParse
-            .split(/[,，]?\s*특기\s*[:：]/)[0]
-            .replace(/["'{}]/g, '').trim();
-          finalCleaned.특기 = '특이사항 없음';
+        const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          finalCleaned.공정 = (parsed.공정 || '')
+            .split(/[,，]?\s*특기\s*[:：]/)[0].trim();
+          finalCleaned.특기 = parsed.특기 || '특이사항 없음';
         }
       }
 
