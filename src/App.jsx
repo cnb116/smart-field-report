@@ -125,15 +125,27 @@ const App = () => {
         }
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
-      // 🚨 정제기: 공정 / 특기만 추출
+      // 🔥 Result 객체 직접 처리 — stringify 없이 바로 사용
       let finalCleaned = { 공정: '', 특기: '' };
-      if (rawResult) {
-        let textToParse = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-        textToParse = textToParse.replace(/https?:\/\/[a-zA-Z0-9.\/_-]+/g, '');
-        textToParse = textToParse.replace(/\*\*/g, '').replace(/\\n/g, '\n');
+
+      if (rawResult?.공정) {
+        // Make.com이 이미 파싱된 객체로 보낸 경우 (가장 깔끔)
+        finalCleaned.공정 = rawResult.공정
+          .split(/[,，]?\s*특기\s*[:：]/)[0]
+          .replace(/\s*,\s*$/, '')
+          .trim();
+        finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
+
+      } else {
+        // 문자열로 온 경우
+        let textToParse = typeof rawResult === 'string'
+          ? rawResult : JSON.stringify(rawResult);
+        textToParse = textToParse
+          .replace(/https?:\/\/[a-zA-Z0-9.\/_-]+/g, '')
+          .replace(/\*\*/g, '')
+          .replace(/\\n/g, '\n');
 
         try {
-          // 탐욕적 매칭으로 전체 JSON 완전히 잡기
           const jsonMatch = textToParse.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
@@ -142,22 +154,11 @@ const App = () => {
               .replace(/\s*,\s*$/, '')
               .trim();
             finalCleaned.특기 = parsed.특기 || '특이사항 없음';
-          } else if (rawResult?.공정) {
-            // 🔥 Result 객체 직접 사용 — 파싱 불필요!
-            finalCleaned.공정 = (rawResult.공정 || '')
-              .split(/[,，]?\s*특기\s*[:：]/)[0]
-              .replace(/\s*,\s*$/, '')
-              .trim();
-            finalCleaned.특기 = rawResult.특기 || '특이사항 없음';
-          } else { throw new Error("Not JSON"); }
+          }
         } catch (e) {
           finalCleaned.공정 = textToParse
-            .replace(/["'{}]/g, '')
             .split(/[,，]?\s*특기\s*[:：]/)[0]
-            .split('특기:')[0]
-            .split(',특기')[0]
-            .replace(/\s*,\s*$/, '')
-            .trim();
+            .replace(/["'{}]/g, '').trim();
           finalCleaned.특기 = '특이사항 없음';
         }
       }
