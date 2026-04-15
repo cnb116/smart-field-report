@@ -15,6 +15,10 @@ const App = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [team, setTeam] = useState(null);
   const [showTeamSelection, setShowTeamSelection] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [memoHistory, setMemoHistory] = useState(() =>
+    JSON.parse(localStorage.getItem('myMemoHistory') || '[]')
+  );
 
 
   // 🌤️ 날씨 상태
@@ -46,6 +50,7 @@ const App = () => {
     const savedTeam = localStorage.getItem('kimbanjang_team');
     if (savedTeam) setTeam(savedTeam);
     else setShowTeamSelection(true);
+
 
     const updateDate = () => { setCurrentDate(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. ')); };
     updateDate();
@@ -149,6 +154,18 @@ const App = () => {
       }
 
       setReportContent(finalCleaned);
+
+      const newHistoryItem = {
+        timestamp: new Date().toISOString(),
+        date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. '),
+        team: team || '팀 미확인',
+        content: finalCleaned.공정,
+        note: finalCleaned.특기 || '특이사항 없음'
+      };
+      const updatedHistory = [newHistoryItem, ...memoHistory].slice(0, 50);
+      localStorage.setItem('myMemoHistory', JSON.stringify(updatedHistory));
+      setMemoHistory(updatedHistory);
+
       setErrorMessage('');
       setShowAIPanel(true);
 
@@ -231,6 +248,7 @@ const App = () => {
         </button>
       </div>
 
+
       <AnimatePresence>
         {showAIPanel && reportContent && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, padding: '20px' }}>
@@ -264,6 +282,68 @@ const App = () => {
               })}
             </div>
             <p style={{ marginTop: '30px', color: '#666', fontSize: '14px' }}>※ 한 번 선택하면 기억함다</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 📝 나의 메모 기록 버튼 & 모달 */}
+      <button
+        onClick={() => setShowHistory(true)}
+        style={{
+          width: '100%', marginTop: '15px', padding: '15px',
+          background: '#1e293b', color: '#94a3b8',
+          border: '1px solid #334155', borderRadius: '20px',
+          fontSize: '16px', fontWeight: 'bold', cursor: 'pointer'
+        }}>
+        📋 나의 메모 기록
+      </button>
+
+      <AnimatePresence>
+        {showHistory && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 999999, padding: '20px', overflowY: 'auto' }}
+            onClick={() => setShowHistory(false)}>
+            <motion.div
+              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
+              style={{ background: '#1e293b', borderRadius: '20px', padding: '20px', maxWidth: '500px', margin: '0 auto' }}
+              onClick={e => e.stopPropagation()}>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h2 style={{ color: '#facc15', fontSize: '18px', fontWeight: '900' }}>📋 나의 메모 기록</h2>
+                <button onClick={() => setShowHistory(false)}
+                  style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '24px', cursor: 'pointer' }}>✕</button>
+              </div>
+
+              {memoHistory.length === 0 ? (
+                <p style={{ color: '#666', textAlign: 'center', padding: '30px' }}>아직 기록이 없심더</p>
+              ) : (
+                memoHistory.map((record, i) => (
+                  <div key={i} style={{ background: '#0f172a', borderRadius: '12px', padding: '15px', marginBottom: '12px', borderLeft: '3px solid #facc15' }}>
+                    <div style={{ color: '#facc15', fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>
+                      {record.date} · {record.team} · {new Date(record.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                    <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                      {record.content}
+                    </div>
+                    {record.note && record.note !== '특이사항 없음' && (
+                      <div style={{ color: '#f97316', fontSize: '13px', marginTop: '8px' }}>● 특기: {record.note}</div>
+                    )}
+                  </div>
+                ))
+              )}
+
+              <button
+                onClick={() => {
+                  if (window.confirm('기록을 전부 삭제하겠심니꺼?')) {
+                    localStorage.removeItem('myMemoHistory');
+                    setMemoHistory([]);
+                  }
+                }}
+                style={{ width: '100%', marginTop: '10px', padding: '10px', background: '#1e293b', color: '#475569', border: '1px solid #334155', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' }}>
+                🗑️ 기록 전체 삭제
+              </button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
