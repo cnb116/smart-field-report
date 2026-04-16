@@ -110,8 +110,18 @@ const App = () => {
       let finalCleaned = { 공정: '', 특기: '' };
 
       if (rawResult) {
-        // rawResult.공정이 바로 있으면 직접 사용
-        if (rawResult['공정']) {
+        // ||| 방식 처리
+        const resultStr = typeof rawResult === 'string' 
+          ? rawResult : JSON.stringify(rawResult);
+
+        if (resultStr.includes('|||')) {
+          const clean = resultStr.replace(/^"|"$/g, '');
+          const parts = clean.split('|||');
+          finalCleaned.공정 = parts[0].replace(/\\n/g, '\n').trim();
+          finalCleaned.특기 = (parts[1] || '특이사항 없음').replace(/\\n/g, '\n').trim();
+        } else {
+          // rawResult.공정이 바로 있으면 직접 사용
+          if (rawResult['공정']) {
           finalCleaned.공정 = String(rawResult['공정'])
             .replace(/\\n/g, '\n')
             .replace(/,?\s*특기\s*[:：].*$/s, '')
@@ -136,6 +146,7 @@ const App = () => {
           const m2 = txt.match(/"특기"\s*:\s*"([\s\S]*?)"/);
           finalCleaned.특기 = m2 ? m2[1].trim() : '특이사항 없음';
         }
+      }
       }
 
       setReportContent(finalCleaned);
