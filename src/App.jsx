@@ -113,6 +113,7 @@ const App = () => {
         // rawResult.공정이 바로 있으면 직접 사용
         if (rawResult['공정']) {
           finalCleaned.공정 = String(rawResult['공정'])
+            .replace(/\\n/g, '\n')
             .split('\n')
             .map(line => line.split(/,특기:|특기:/)[0].trim())
             .filter(line => line.length > 0)
