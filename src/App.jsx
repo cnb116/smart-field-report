@@ -110,17 +110,32 @@ const App = () => {
       let finalCleaned = { 공정: '', 특기: '' };
 
       if (rawResult) {
-        // ||| 방식 처리
-        const resultStr = typeof rawResult === 'string' 
-          ? rawResult : JSON.stringify(rawResult);
+      // 🔥 ||| 파싱
+      if (typeof rawResult === 'string' && rawResult.includes('|||')) {
+        const parts = rawResult.replace(/^"|"$/g, '').split('|||');
+        finalCleaned.공정 = parts[0].replace(/\\n/g, '\n').trim();
+        finalCleaned.특기 = (parts[1] || '특이사항 없음').replace(/^"|"$/g, '').replace(/\\n/g, '\n').trim();
+        
+        setReportContent(finalCleaned);
+        
+        const newHistoryItem = {
+          timestamp: new Date().toISOString(),
+          date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. '),
+          team: team || '팀 미확인',
+          content: finalCleaned.공정,
+          note: finalCleaned.특기 || '특이사항 없음'
+        };
+        const updatedHistory = [newHistoryItem, ...memoHistory].slice(0, 50);
+        localStorage.setItem('myMemoHistory', JSON.stringify(updatedHistory));
+        setMemoHistory(updatedHistory);
+        
+        setErrorMessage('');
+        setShowAIPanel(true);
+        setIsSending(false);
+        return;
+      }
 
-        if (resultStr.includes('|||')) {
-          const clean = resultStr.replace(/^"|"$/g, '');
-          const parts = clean.split('|||');
-          finalCleaned.공정 = parts[0].replace(/\\n/g, '\n').trim();
-          finalCleaned.특기 = (parts[1] || '특이사항 없음').replace(/\\n/g, '\n').trim();
-        } else {
-          // rawResult.공정이 바로 있으면 직접 사용
+      // rawResult.공정이 바로 있으면 직접 사용
           if (rawResult['공정']) {
           finalCleaned.공정 = String(rawResult['공정'])
             .replace(/\\n/g, '\n')
