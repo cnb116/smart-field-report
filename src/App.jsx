@@ -114,10 +114,11 @@ const App = () => {
         if (rawResult['공정']) {
           finalCleaned.공정 = String(rawResult['공정'])
             .replace(/\\n/g, '\n')
-            .split('\n')
-            .map(line => line.split(/,특기:|특기:/)[0].trim())
-            .filter(line => line.length > 0)
-            .join('\n');
+            .replace(/,?\s*특기\s*[:：].*$/s, '')
+            .replace(/,?\s*특기\s*[:：][^]*/g, '')
+            .split(/,특기:|특기:| 특기:/)[0]
+            .replace(/,\s*$/, '')
+            .trim();
           finalCleaned.특기 = String(rawResult['특기'] || '특이사항 없음').trim();
         } else {
           // 문자열로 변환 후 파싱
