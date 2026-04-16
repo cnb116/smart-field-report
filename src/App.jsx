@@ -113,8 +113,10 @@ const App = () => {
         // rawResult.공정이 바로 있으면 직접 사용
         if (rawResult['공정']) {
           finalCleaned.공정 = String(rawResult['공정'])
-            .split(/,특기:|특기:/)[0]
-            .replace(/,\s*$/, '').trim();
+            .split('\n')
+            .map(line => line.split(/,특기:|특기:/)[0].trim())
+            .filter(line => line.length > 0)
+            .join('\n');
           finalCleaned.특기 = String(rawResult['특기'] || '특이사항 없음').trim();
         } else {
           // 문자열로 변환 후 파싱
