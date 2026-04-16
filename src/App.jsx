@@ -126,8 +126,10 @@ const App = () => {
           if (m) {
             finalCleaned.공정 = m[1]
               .replace(/\\n/g, '\n')
-              .split(/,?\s*특기\s*[:：]/)[0]
-              .trim();
+              .split('\n')
+              .map(line => line.split(/,특기:|특기:/)[0].trim())
+              .filter(line => line.length > 0)
+              .join('\n');
           }
           const m2 = txt.match(/"특기"\s*:\s*"([\s\S]*?)"/);
           finalCleaned.특기 = m2 ? m2[1].trim() : '특이사항 없음';
