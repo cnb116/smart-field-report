@@ -113,12 +113,12 @@ const App = () => {
         // rawResult.공정이 바로 있으면 직접 사용
         if (rawResult['공정']) {
           finalCleaned.공정 = String(rawResult['공정'])
-            .split(/,?\s*특기\s*[:：]/)[0]
+            .split(/,특기:|특기:/)[0]
             .replace(/,\s*$/, '').trim();
           finalCleaned.특기 = String(rawResult['특기'] || '특이사항 없음').trim();
         } else {
           // 문자열로 변환 후 파싱
-          const txt = typeof rawResult === 'string' 
+          const txt = typeof rawResult === 'string'
             ? rawResult : JSON.stringify(rawResult);
           const m = txt.match(/"공정"\s*:\s*"([\s\S]*?)"\s*,\s*"특기"/);
           if (m) {
@@ -249,7 +249,7 @@ const App = () => {
       <AnimatePresence>
         {showTeamSelection && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, backgroundColor: '#111', zIndex: 200000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <motion.h1 initial={{ y: -20 }} animate={{ y: 0 }} style={{ fontSize: '28px', fontWeight: '900', marginBottom: '40px', color: '#facc15', textAlign: 'center' }}>어느 소속이신지<br/>선택해주이소</motion.h1>
+            <motion.h1 initial={{ y: -20 }} animate={{ y: 0 }} style={{ fontSize: '28px', fontWeight: '900', marginBottom: '40px', color: '#facc15', textAlign: 'center' }}>어느 소속이신지<br />선택해주이소</motion.h1>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '400px' }}>
               {['안전반', '건축반', '환경반'].map((t) => {
                 const icon = t === '안전반' ? '🦺' : t === '건축반' ? '🏗️' : '🌿';
