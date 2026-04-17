@@ -73,6 +73,27 @@ const App = () => {
     } catch (e) { setIsListening(false); }
   };
 
+  // 🔧 중첩 JSON 완전 해체 파서
+  const deepParse = (raw) => {
+    try {
+      // 1단계: 문자열이면 JSON 파싱
+      let obj = typeof raw === 'string'
+        ? JSON.parse(raw.replace(/```json|```/g, '').trim())
+        : raw;
+
+      // 2단계: result 키가 있으면 한 번 더 파싱
+      if (obj && obj.result) {
+        obj = typeof obj.result === 'string'
+          ? JSON.parse(obj.result.replace(/```json|```/g, '').trim())
+          : obj.result;
+      }
+
+      return obj;
+    } catch (e) {
+      return { 공정: typeof raw === 'string' ? raw : JSON.stringify(raw) };
+    }
+  };
+
   const handleSendMemo = async () => {
     if (!memoText.trim()) return;
     setIsSending(true);
@@ -91,37 +112,26 @@ const App = () => {
         time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       };
 
-      // 1공정: 구글 시트 저장 (절대 건드리지 않음)
+      // 1공정: 구글 시트 저장
       try { await axios.post(memoWebhookUrl, payload, { timeout: 120000 }); } catch (err) { console.error('시트 저장 에러'); }
 
-      // 2공정: Make.com Gemini 보고서 생성
+      // 2공정: Make.com Gemini 보고서
       let rawResult = null;
       try {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
-        rawResult = response.data?.result || response.data;
+        rawResult = response.data;
       } catch (err) { throw new Error('보고서 생성 실패'); }
 
-      // 결과 파싱 + 찌꺼기 제거
-      let finalCleaned = { 공정: '' };
-      try {
-        let parseTarget = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-        if (parseTarget.includes('"result"')) {
-          const outer = JSON.parse(parseTarget);
-          parseTarget = outer.result || parseTarget;
-        }
-        const parsed = typeof parseTarget === 'string'
-          ? JSON.parse(parseTarget.replace(/```json|```/g, '').trim())
-          : parseTarget;
+      // 중첩 JSON 완전 해체
+      const parsed = deepParse(rawResult);
 
-        const cleanLines = (parsed.공정 || '')
-          .split('\n')
-          .map(line => line.replace(/,?특기[:：].*$/g, '').replace(/,\s*$/, '').trim())
-          .filter(line => line.length > 0);
+      // 찌꺼기 제거
+      const cleanLines = (parsed.공정 || '')
+        .split('\n')
+        .map(line => line.replace(/,?특기[:：].*$/g, '').replace(/,\s*$/, '').trim())
+        .filter(line => line.length > 0);
 
-        finalCleaned.공정 = cleanLines.join('\n');
-      } catch (e) {
-        finalCleaned.공정 = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
-      }
+      const finalCleaned = { 공정: cleanLines.join('\n') };
 
       setReportContent(finalCleaned);
 
