@@ -104,64 +104,22 @@ const App = () => {
       try {
         const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
         rawResult = response.data?.result || response.data;
+        
+        // 문자열로 온 JSON 파싱
+        if (typeof rawResult === 'string') {
+          try {
+            rawResult = JSON.parse(rawResult);
+          } catch(e) {}
+        }
+        
         console.log('🔍 rawResult:', JSON.stringify(rawResult));
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
       let finalCleaned = { 공정: '', 특기: '' };
 
-      if (rawResult) {
-      // 🔥 ||| 파싱
-      if (typeof rawResult === 'string' && rawResult.includes('|||')) {
-        const parts = rawResult.replace(/^"|"$/g, '').split('|||');
-        finalCleaned.공정 = parts[0].replace(/\\n/g, '\n').trim();
-        finalCleaned.특기 = (parts[1] || '특이사항 없음').replace(/^"|"$/g, '').replace(/\\n/g, '\n').trim();
-        
-        setReportContent(finalCleaned);
-        
-        const newHistoryItem = {
-          timestamp: new Date().toISOString(),
-          date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. '),
-          team: team || '팀 미확인',
-          content: finalCleaned.공정,
-          note: finalCleaned.특기 || '특이사항 없음'
-        };
-        const updatedHistory = [newHistoryItem, ...memoHistory].slice(0, 50);
-        localStorage.setItem('myMemoHistory', JSON.stringify(updatedHistory));
-        setMemoHistory(updatedHistory);
-        
-        setErrorMessage('');
-        setShowAIPanel(true);
-        setIsSending(false);
-        return;
-      }
-
-      // rawResult.공정이 바로 있으면 직접 사용
-          if (rawResult['공정']) {
-          finalCleaned.공정 = String(rawResult['공정'])
-            .replace(/\\n/g, '\n')
-            .replace(/,?\s*특기\s*[:：].*$/s, '')
-            .replace(/,?\s*특기\s*[:：][^]*/g, '')
-            .split(/,특기:|특기:| 특기:/)[0]
-            .replace(/,\s*$/, '')
-            .trim();
-          finalCleaned.특기 = String(rawResult['특기'] || '특이사항 없음').trim();
-        } else {
-          // 문자열로 변환 후 파싱
-          const txt = typeof rawResult === 'string'
-            ? rawResult : JSON.stringify(rawResult);
-          const m = txt.match(/"공정"\s*:\s*"([\s\S]*?)"\s*,\s*"특기"/);
-          if (m) {
-            finalCleaned.공정 = m[1]
-              .replace(/\\n/g, '\n')
-              .split('\n')
-              .map(line => line.split(/,특기:|특기:/)[0].trim())
-              .filter(line => line.length > 0)
-              .join('\n');
-          }
-          const m2 = txt.match(/"특기"\s*:\s*"([\s\S]*?)"/);
-          finalCleaned.특기 = m2 ? m2[1].trim() : '특이사항 없음';
-        }
-      }
+      if (rawResult?.공정) {
+        finalCleaned.공정 = String(rawResult.공정).trim();
+        finalCleaned.특기 = String(rawResult.특기 || '특이사항 없음').trim();
       }
 
       setReportContent(finalCleaned);
