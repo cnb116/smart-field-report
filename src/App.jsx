@@ -104,9 +104,14 @@ const App = () => {
       // 결과 파싱 + 찌꺼기 제거
       let finalCleaned = { 공정: '' };
       try {
-        const parsed = typeof rawResult === 'string'
-          ? JSON.parse(rawResult.replace(/```json|```/g, '').trim())
-          : rawResult;
+        let parseTarget = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult);
+        if (parseTarget.includes('"result"')) {
+          const outer = JSON.parse(parseTarget);
+          parseTarget = outer.result || parseTarget;
+        }
+        const parsed = typeof parseTarget === 'string'
+          ? JSON.parse(parseTarget.replace(/```json|```/g, '').trim())
+          : parseTarget;
 
         const cleanLines = (parsed.공정 || '')
           .split('\n')
