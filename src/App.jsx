@@ -100,30 +100,47 @@ const App = () => {
 
       try { await axios.post(memoWebhookUrl, payload, { timeout: 120000 }); } catch (err) { console.error('시트 저장 에러'); }
 
-      let rawResult = null;
-      try {
-        const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
-        rawResult = response.data?.result || response.data;
-        
-        // 문자열로 온 JSON 파싱
-        if (typeof rawResult === 'string') {
-          try {
-            rawResult = JSON.parse(rawResult);
-          } catch(e) {}
-        }
-        
-        console.log('🔍 rawResult:', JSON.stringify(rawResult));
-      } catch (err) { throw new Error("리포트 응답 없음"); }
-
       let finalCleaned = { 공정: '', 특기: '' };
 
-      if (rawResult?.공정) {
-        finalCleaned.공정 = String(rawResult.공정)
-          .split(',특기:')[0]
-          .split('특기:')[0]
-          .trim();
-        finalCleaned.특기 = String(rawResult.특기 || '특이사항 없음').trim();
-      }
+      try {
+        // 🔥 Claude API 직접 호출
+        const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': import.meta.env.VITE_CLAUDE_API_KEY,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022', // Updated to valid existing model instead of claude-sonnet-4-20250514
+            max_tokens: 1000,
+            messages: [{
+              role: 'user',
+              content: `당신은 30년 경력 건설현장 소장입니다.
+아래 음성 메모를 현장소장이 직접 쓴 전문 보고서로 격상시켜주세요.
+
+[규칙]
+- 명사형 종결 필수 (~실시, ~완료, ~점검)
+- 전문용어 격상 (아시바→강관비계, 공구리→콘크리트 타설 등)
+- 수치·인원·위치 절대 생략 금지
+- N번 Gate 형식 고정
+
+[출력 - JSON만, 코드블록 금지]
+{"공정":"- 작업1\\n- 작업2","특기":"특이사항 없음"}
+
+[입력]: ${memoText}`
+            }]
+          })
+        });
+
+        const claudeData = await claudeResponse.json();
+        const resultText = claudeData.content[0].text;
+        const parsed = JSON.parse(resultText);
+
+        finalCleaned.공정 = parsed.공정 || '';
+        finalCleaned.특기 = parsed.특기 || '특이사항 없음';
+      } catch (err) { throw new Error("리포트 응답 없음"); }
 
       setReportContent(finalCleaned);
 
