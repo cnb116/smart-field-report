@@ -141,7 +141,6 @@ const App = () => {
           .filter(line => line.length > 0);
 
         finalCleaned.공정 = cleanLines.join('\n');
-        finalCleaned.특기 = parsed.특기 || '특이사항 없음';
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
       setReportContent(finalCleaned);
@@ -185,7 +184,7 @@ const App = () => {
       .trim();
       
     if (cleanGongjeong) text += `공정:\n${cleanGongjeong}\n\n`;
-    text += `● 특기: ${reportContent.특기 || '특이사항 없음'}`;
+
 
     try {
       await navigator.clipboard.writeText(text.trim());
@@ -255,7 +254,7 @@ const App = () => {
 
               <div style={{ fontSize: '15px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
                 {reportContent.공정 && <div style={{ marginBottom: '15px' }}><strong style={{ color: '#E87A30' }}>● 공정:</strong><br />{highlightNumbers(reportContent.공정)}</div>}
-                {reportContent.특기 && <div style={{ marginBottom: '15px' }}><strong style={{ color: '#E87A30' }}>● 특기:</strong><br />{highlightNumbers(reportContent.특기)}</div>}
+
               </div>
 
               <button onClick={handleCopy} style={{ width: '100%', marginTop: '15px', padding: '15px', background: '#E87A30', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px' }}>📋 복사하기</button>
