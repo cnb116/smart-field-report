@@ -160,7 +160,7 @@ const App = () => {
       setShowAIPanel(true);
 
     } catch (e) {
-      setReportContent({ 공정: '🚨 Make.com 전송 실패 (네트워크 확인 요망)', 특기: '' });
+      setReportContent({ 공정: `🚨 오류: ${e.message || 'Claude API 응답 없음'}`, 특기: '' });
       setShowAIPanel(true);
     } finally { setIsSending(false); }
   };
