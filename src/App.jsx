@@ -158,7 +158,14 @@ const App = () => {
   const handleCopy = async () => {
     if (!reportContent) return;
     let text = `일자: ${currentDate}\n\n`;
-    if (reportContent.공정) text += `공정:\n${reportContent.공정}\n\n`;
+    
+    // 공정에서 찌꺼기 제거 후 복사
+    const cleanGongjeong = (reportContent.공정 || '')
+      .split(',특기:')[0]
+      .split('특기:')[0]
+      .trim();
+      
+    if (cleanGongjeong) text += `공정:\n${cleanGongjeong}\n\n`;
     text += `● 특기: ${reportContent.특기 || '특이사항 없음'}`;
 
     try {
