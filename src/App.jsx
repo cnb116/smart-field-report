@@ -134,7 +134,13 @@ const App = () => {
         const resultText = claudeData.content[0].text;
         const parsed = JSON.parse(resultText.replace(/```json|```/g, '').trim());
 
-        finalCleaned.공정 = parsed.공정 || '';
+        // 🔧 공정 찌꺼기 강제 제거 — 코드단 방어선
+        const cleanLines = (parsed.공정 || '')
+          .split('\n')
+          .map(line => line.replace(/,?특기[:：].*$/g, '').replace(/,\s*$/, '').trim())
+          .filter(line => line.length > 0);
+
+        finalCleaned.공정 = cleanLines.join('\n');
         finalCleaned.특기 = parsed.특기 || '특이사항 없음';
       } catch (err) { throw new Error("리포트 응답 없음"); }
 
