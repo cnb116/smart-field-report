@@ -118,7 +118,10 @@ const App = () => {
       let finalCleaned = { 공정: '', 특기: '' };
 
       if (rawResult?.공정) {
-        finalCleaned.공정 = String(rawResult.공정).trim();
+        finalCleaned.공정 = String(rawResult.공정)
+          .split(',특기:')[0]
+          .split('특기:')[0]
+          .trim();
         finalCleaned.특기 = String(rawResult.특기 || '특이사항 없음').trim();
       }
 
