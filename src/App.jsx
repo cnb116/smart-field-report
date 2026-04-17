@@ -20,7 +20,6 @@ const App = () => {
     JSON.parse(localStorage.getItem('myMemoHistory') || '[]')
   );
 
-
   // 🌤️ 날씨 상태
   const [weather, setWeather] = useState({ temp: '-', wind: 0, condition: '확인중...' });
 
@@ -51,7 +50,6 @@ const App = () => {
     if (savedTeam) setTeam(savedTeam);
     else setShowTeamSelection(true);
 
-
     const updateDate = () => { setCurrentDate(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. ')); };
     updateDate();
 
@@ -81,67 +79,68 @@ const App = () => {
     } catch (e) { setIsListening(false); }
   };
 
-  // 🚀 [전송 및 강력 정제 엔진] - 안전(Safety) 항목 완전 제거!
+  // 🚀 전송 엔진 — Gemini API
   const handleSendMemo = async () => {
     if (!memoText.trim()) return;
     setIsSending(true);
     setErrorMessage('데이터 전송 중...');
 
     const memoWebhookUrl = import.meta.env.VITE_MAKE_MEMO_URL;
-    const reportWebhookUrl = import.meta.env.VITE_MAKE_REPORT_URL;
 
     try {
       const payload = {
         id: Date.now(), text: memoText, raw_content: memoText,
         team: team,
-        timestamp: new Date().toISOString(), time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+        timestamp: new Date().toISOString(),
+        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
       };
 
-
+      // 1공정: 구글 시트 저장 (절대 건드리지 않음)
       try { await axios.post(memoWebhookUrl, payload, { timeout: 120000 }); } catch (err) { console.error('시트 저장 에러'); }
 
-      let finalCleaned = { 공정: '', 특기: '' };
+      let finalCleaned = { 공정: '' };
 
+      // 2공정: Gemini API 직접 호출
       try {
-        const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': import.meta.env.VITE_CLAUDE_API_KEY,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 1000,
-            messages: [{ role: 'user', content: `30년 경력 건설현장 소장으로서 아래 음성 메모를 전문 보고서로 격상시켜주세요.
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${import.meta.env.VITE_GEMINI_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `30년 경력 건설현장 소장으로서 아래 음성 메모를 전문 보고서로 격상시켜주세요.
 
 [규칙]
 - 명사형 종결 (~실시, ~완료, ~점검)
 - 전문용어 격상 (아시바→강관비계, 공구리→콘크리트 타설, 난간→안전난간)
 - 수치·인원·위치 절대 생략 금지
 - N번 Gate 형식 고정
-- 공정 마지막 항목 뒤에 특기 절대 붙이지 말 것
 
 [출력 - JSON만, 코드블록 금지]
-{"공정":"- 작업1\\n- 작업2","특기":"특이사항 없음"}
+{"공정":"- 작업1\n- 작업2"}
 
-[입력]: ${memoText}` }]
-          })
-        });
+[입력]: ${memoText}`
+                }]
+              }]
+            })
+          }
+        );
 
-        const claudeData = await claudeRes.json();
-        const resultText = claudeData.content[0].text;
+        const geminiData = await geminiRes.json();
+        const resultText = geminiData.candidates[0].content.parts[0].text;
         const parsed = JSON.parse(resultText.replace(/```json|```/g, '').trim());
 
-        // 🔧 공정 찌꺼기 강제 제거 — 코드단 방어선
+        // 공정 찌꺼기 강제 제거
         const cleanLines = (parsed.공정 || '')
           .split('\n')
           .map(line => line.replace(/,?특기[:：].*$/g, '').replace(/,\s*$/, '').trim())
           .filter(line => line.length > 0);
 
         finalCleaned.공정 = cleanLines.join('\n');
-      } catch (err) { throw new Error("리포트 응답 없음"); }
+
+      } catch (err) { throw new Error(`Gemini 오류: ${err.message}`); }
 
       setReportContent(finalCleaned);
 
@@ -150,7 +149,6 @@ const App = () => {
         date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. '),
         team: team || '팀 미확인',
         content: finalCleaned.공정,
-        note: finalCleaned.특기 || '특이사항 없음'
       };
       const updatedHistory = [newHistoryItem, ...memoHistory].slice(0, 50);
       localStorage.setItem('myMemoHistory', JSON.stringify(updatedHistory));
@@ -160,7 +158,7 @@ const App = () => {
       setShowAIPanel(true);
 
     } catch (e) {
-      setReportContent({ 공정: `🚨 오류: ${e.message || 'Claude API 응답 없음'}`, 특기: '' });
+      setReportContent({ 공정: `🚨 오류: ${e.message}` });
       setShowAIPanel(true);
     } finally { setIsSending(false); }
   };
@@ -171,21 +169,11 @@ const App = () => {
     setShowTeamSelection(false);
   };
 
-
-  // 📋 카톡 복사기 (공정, 특기만 깔끔하게!)
+  // 📋 복사
   const handleCopy = async () => {
     if (!reportContent) return;
     let text = `일자: ${currentDate}\n\n`;
-    
-    // 공정에서 찌꺼기 제거 후 복사
-    const cleanGongjeong = (reportContent.공정 || '')
-      .split(',특기:')[0]
-      .split('특기:')[0]
-      .trim();
-      
-    if (cleanGongjeong) text += `공정:\n${cleanGongjeong}\n\n`;
-
-
+    if (reportContent.공정) text += `공정:\n${reportContent.공정}\n\n`;
     try {
       await navigator.clipboard.writeText(text.trim());
       setErrorMessage('✅ 복사 완료!');
@@ -231,7 +219,6 @@ const App = () => {
         )}
       </div>
 
-
       <div className="memo-container-industrial">
         <textarea style={{ width: '100%', height: '200px', background: '#222', color: '#fff', padding: '15px', borderRadius: '15px', border: '2px solid #333', fontSize: '18px', marginBottom: '20px', resize: 'none', outline: 'none' }} placeholder="현장 상황을 말해주이소..." value={memoText} onChange={(e) => setMemoText(e.target.value)} />
       </div>
@@ -245,18 +232,14 @@ const App = () => {
         </button>
       </div>
 
-
       <AnimatePresence>
         {showAIPanel && reportContent && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, padding: '20px' }}>
             <motion.div style={{ background: '#FFFDF0', color: '#111', borderRadius: '20px', width: '100%', maxWidth: '500px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }} initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={(e) => e.stopPropagation()}>
               <h2 style={{ fontSize: '20px', fontWeight: '900', borderBottom: '2px solid #222', paddingBottom: '10px', marginBottom: '15px' }}>📋 현장 보고서 결과</h2>
-
               <div style={{ fontSize: '15px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
                 {reportContent.공정 && <div style={{ marginBottom: '15px' }}><strong style={{ color: '#E87A30' }}>● 공정:</strong><br />{highlightNumbers(reportContent.공정)}</div>}
-
               </div>
-
               <button onClick={handleCopy} style={{ width: '100%', marginTop: '15px', padding: '15px', background: '#E87A30', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px' }}>📋 복사하기</button>
               <button onClick={handleResetApp} style={{ width: '100%', marginTop: '10px', background: '#ddd', color: '#333', padding: '15px', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px' }}>닫기 및 새 작업 시작</button>
             </motion.div>
@@ -283,35 +266,18 @@ const App = () => {
         )}
       </AnimatePresence>
 
-      {/* 📝 나의 메모 기록 버튼 & 모달 */}
-      <button
-        onClick={() => setShowHistory(true)}
-        style={{
-          width: '100%', marginTop: '15px', padding: '15px',
-          background: '#1e293b', color: '#94a3b8',
-          border: '1px solid #334155', borderRadius: '20px',
-          fontSize: '16px', fontWeight: 'bold', cursor: 'pointer'
-        }}>
+      <button onClick={() => setShowHistory(true)} style={{ width: '100%', marginTop: '15px', padding: '15px', background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: '20px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
         📋 나의 메모 기록
       </button>
 
       <AnimatePresence>
         {showHistory && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 999999, padding: '20px', overflowY: 'auto' }}
-            onClick={() => setShowHistory(false)}>
-            <motion.div
-              initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
-              style={{ background: '#1e293b', borderRadius: '20px', padding: '20px', maxWidth: '500px', margin: '0 auto' }}
-              onClick={e => e.stopPropagation()}>
-
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 999999, padding: '20px', overflowY: 'auto' }} onClick={() => setShowHistory(false)}>
+            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} style={{ background: '#1e293b', borderRadius: '20px', padding: '20px', maxWidth: '500px', margin: '0 auto' }} onClick={e => e.stopPropagation()}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h2 style={{ color: '#facc15', fontSize: '18px', fontWeight: '900' }}>📋 나의 메모 기록</h2>
-                <button onClick={() => setShowHistory(false)}
-                  style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '24px', cursor: 'pointer' }}>✕</button>
+                <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '24px', cursor: 'pointer' }}>✕</button>
               </div>
-
               {memoHistory.length === 0 ? (
                 <p style={{ color: '#666', textAlign: 'center', padding: '30px' }}>아직 기록이 없심더</p>
               ) : (
@@ -323,21 +289,10 @@ const App = () => {
                     <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
                       {record.content}
                     </div>
-                    {record.note && record.note !== '특이사항 없음' && (
-                      <div style={{ color: '#f97316', fontSize: '13px', marginTop: '8px' }}>● 특기: {record.note}</div>
-                    )}
                   </div>
                 ))
               )}
-
-              <button
-                onClick={() => {
-                  if (window.confirm('기록을 전부 삭제하겠심니꺼?')) {
-                    localStorage.removeItem('myMemoHistory');
-                    setMemoHistory([]);
-                  }
-                }}
-                style={{ width: '100%', marginTop: '10px', padding: '10px', background: '#1e293b', color: '#475569', border: '1px solid #334155', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' }}>
+              <button onClick={() => { if (window.confirm('기록을 전부 삭제하겠심니꺼?')) { localStorage.removeItem('myMemoHistory'); setMemoHistory([]); } }} style={{ width: '100%', marginTop: '10px', padding: '10px', background: '#1e293b', color: '#475569', border: '1px solid #334155', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' }}>
                 🗑️ 기록 전체 삭제
               </button>
             </motion.div>
