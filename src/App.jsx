@@ -1,306 +1,59 @@
-import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Mic, Loader2, Sun, AlertTriangle } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import ScanButton from './components/ScanButton';
+import Paywall from './components/Paywall';
 import './index.css';
 
-const App = () => {
-  const [memoText, setMemoText] = useState('');
-  const [memos, setMemos] = useState([]);
-  const [isListening, setIsListening] = useState(false);
-  const [isSending, setIsSending] = useState(false);
-  const [currentDate, setCurrentDate] = useState('');
-  const [showAIPanel, setShowAIPanel] = useState(false);
-  const [reportContent, setReportContent] = useState(null);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [team, setTeam] = useState(null);
-  const [showTeamSelection, setShowTeamSelection] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [memoHistory, setMemoHistory] = useState(() =>
-    JSON.parse(localStorage.getItem('myMemoHistory') || '[]')
-  );
+const FREE_LIMIT = 3;
+const STORAGE_KEY = 'jajae_scan_count';
 
-  const [weather, setWeather] = useState({ temp: '-', wind: 0, condition: '확인중...' });
-  const recognitionRef = useRef(null);
+export default function App() {
+  const [scanCount, setScanCount] = useState(() => {
+    return parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+  });
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [status, setStatus] = useState('idle');
+  const fileInputRef = useRef(null);
+  const isBlocked = scanCount >= FREE_LIMIT;
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?lat=37.5665&lon=126.9780&appid=8d32b85750d4893706050e82c81d8f1e&units=metric&lang=kr`);
-        if (res.data && res.data.main) {
-          setWeather({ temp: Math.round(res.data.main.temp), wind: res.data.wind.speed, condition: res.data.weather[0].description });
-        }
-      } catch (e) { setWeather({ temp: '-', wind: 0, condition: '날씨 정보 없음' }); }
-    };
-    fetchWeather();
-    const weatherTimer = setInterval(fetchWeather, 600000);
-    return () => clearInterval(weatherTimer);
-  }, []);
+  const handleScanClick = () => {
+    if (isBlocked) { setShowPaywall(true); return; }
+    fileInputRef.current?.click();
+  };
 
-  useEffect(() => {
-    const requestWakeLock = async () => { try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (err) { } };
-    requestWakeLock();
-    const saved = localStorage.getItem('kimbanjang_memos');
-    if (saved) setMemos(JSON.parse(saved));
-    const savedTeam = localStorage.getItem('kimbanjang_team');
-    if (savedTeam) setTeam(savedTeam);
-    else setShowTeamSelection(true);
-    const updateDate = () => { setCurrentDate(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. ')); };
-    updateDate();
-    if ('webkitSpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.continuous = false;
-      recognition.interimResults = true;
-      recognition.lang = 'ko-KR';
-      recognition.onresult = (event) => {
-        const results = event.results;
-        const lastResult = results[results.length - 1];
-        if (lastResult.isFinal) {
-          const transcript = lastResult[0].transcript.trim();
-          setMemoText(prev => prev.trim().endsWith(transcript) ? prev : prev + (prev.length > 0 ? ' ' : '') + transcript);
-        }
-      };
-      recognition.onend = () => setIsListening(false);
-      recognitionRef.current = recognition;
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const newCount = scanCount + 1;
+    setScanCount(newCount);
+    localStorage.setItem(STORAGE_KEY, String(newCount));
+    setStatus('uploading');
+    e.target.value = '';
+    try {
+      const { uploadToMake } = await import('./utils/uploadFile');
+      await uploadToMake(file, { team: '현장반' });
+      setStatus('done');
+      setTimeout(() => setStatus('idle'), 3000);
+    } catch {
+      setStatus('error');
     }
-  }, []);
-
-  const toggleListening = () => {
-    try {
-      if (isListening) { recognitionRef.current?.stop(); setIsListening(false); }
-      else { recognitionRef.current?.start(); setIsListening(true); }
-    } catch (e) { setIsListening(false); }
-  };
-
-  // 🔧 중첩 JSON 완전 해체 파서
-  const deepParse = (raw) => {
-    try {
-      // 1단계: 문자열이면 JSON 파싱
-      let obj = typeof raw === 'string'
-        ? JSON.parse(raw.replace(/```json|```/g, '').trim())
-        : raw;
-
-      // 2단계: result 키가 있으면 한 번 더 파싱
-      if (obj && obj.result) {
-        obj = typeof obj.result === 'string'
-          ? JSON.parse(obj.result.replace(/```json|```/g, '').trim())
-          : obj.result;
-      }
-
-      return obj;
-    } catch (e) {
-      return { 공정: typeof raw === 'string' ? raw : JSON.stringify(raw) };
-    }
-  };
-
-  const handleSendMemo = async () => {
-    if (!memoText.trim()) return;
-    setIsSending(true);
-    setErrorMessage('데이터 전송 중...');
-
-    const memoWebhookUrl = import.meta.env.VITE_MAKE_MEMO_URL;
-    const reportWebhookUrl = 'https://hook.eu2.make.com/6stf1efcws7opes4d33snrse5clfy6m9';
-
-    try {
-      const payload = {
-        id: Date.now(),
-        text: memoText,
-        raw_content: memoText,
-        team: team,
-        timestamp: new Date().toISOString(),
-        time: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
-      };
-
-      // 1공정: 구글 시트 저장
-      try { await axios.post(memoWebhookUrl, payload, { timeout: 120000 }); } catch (err) { console.error('시트 저장 에러'); }
-
-      // 2공정: Make.com Gemini 보고서
-      let rawResult = null;
-      try {
-        const response = await axios.post(reportWebhookUrl, payload, { timeout: 120000 });
-        rawResult = response.data;
-      } catch (err) { throw new Error('보고서 생성 실패'); }
-
-      // 중첩 JSON 완전 해체
-      const parsed = deepParse(rawResult);
-
-      // 찌꺼기 제거
-      const cleanLines = (parsed.공정 || '')
-        .split('\n')
-        .map(line => line.replace(/,?특기[:：].*$/g, '').replace(/,\s*$/, '').trim())
-        .filter(line => line.length > 0);
-
-      const finalCleaned = { 공정: cleanLines.join('\n') };
-
-      setReportContent(finalCleaned);
-
-      const newHistoryItem = {
-        timestamp: new Date().toISOString(),
-        date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).replace(/\. /g, '. '),
-        team: team || '팀 미확인',
-        content: finalCleaned.공정,
-      };
-      const updatedHistory = [newHistoryItem, ...memoHistory].slice(0, 50);
-      localStorage.setItem('myMemoHistory', JSON.stringify(updatedHistory));
-      setMemoHistory(updatedHistory);
-
-      setErrorMessage('');
-      setShowAIPanel(true);
-
-    } catch (e) {
-      setReportContent({ 공정: `🚨 오류: ${e.message}` });
-      setShowAIPanel(true);
-    } finally { setIsSending(false); }
-  };
-
-  const handleSelectTeam = (selected) => {
-    setTeam(selected);
-    localStorage.setItem('kimbanjang_team', selected);
-    setShowTeamSelection(false);
-  };
-
-  const handleCopy = async () => {
-    if (!reportContent) return;
-    let text = `일자: ${currentDate}\n\n`;
-    if (reportContent.공정) text += `공정:\n${reportContent.공정}\n\n`;
-    try {
-      await navigator.clipboard.writeText(text.trim());
-      setErrorMessage('✅ 복사 완료!');
-      setTimeout(() => setErrorMessage(''), 3000);
-    } catch (err) { setErrorMessage('❌ 복사 실패'); }
-  };
-
-  const handleResetApp = () => {
-    setShowAIPanel(false);
-    setReportContent(null);
-    setErrorMessage('');
-    setMemoText('');
-  };
-
-  const highlightNumbers = (text) => {
-    if (!text) return null;
-    const parts = text.split(/(\d+(?:\.\d+)?\s*(?:명|인|대|개|팀|건|조|톤|kg|m|cm|mm|식|루베|헤베))/g);
-    return parts.map((part, i) => i % 2 === 1 ? <strong key={i} style={{ fontWeight: '900', color: '#000' }}>{part}</strong> : part);
   };
 
   return (
-    <div className="app-container" style={{ background: '#111', minHeight: '100vh', padding: '15px', color: '#fff' }}>
-      <AnimatePresence>
-        {errorMessage && (
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-            style={{ position: 'fixed', top: '10px', left: '50%', transform: 'translateX(-50%)', background: errorMessage.includes('✅') ? '#22c55e' : '#ef4444', color: '#fff', padding: '10px 20px', borderRadius: '30px', fontWeight: 'bold', zIndex: 100000, boxShadow: '0 4px 6px rgba(0,0,0,0.3)' }}>
-            {errorMessage}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <div style={{ backgroundColor: weather.wind >= 5 ? '#facc15' : '#222', color: weather.wind >= 5 ? '#000' : '#fff', padding: '12px', borderRadius: '10px', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px', marginTop: '40px' }}>
-        {weather.wind >= 5 ? <AlertTriangle size={18} className="animate-bounce" /> : <Sun size={18} className="text-yellow-400" />}
-        <span>{weather.wind >= 5 ? `⚠️ 강풍 주의 (초속 ${weather.wind}m)!` : `✅ 현재 기온 ${weather.temp}°C / 풍속 ${weather.wind}m/s`}</span>
+    <div className="app-shell">
+      <div className="scan-counter">
+        {isBlocked ? '🔒 무료 체험 종료' : `무료 스캔 ${FREE_LIMIT - scanCount}회 남음`}
       </div>
-
-      <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-        <span style={{ color: '#facc15', fontSize: '1.2rem', fontWeight: '900' }}>{currentDate}</span>
-        {team && (
-          <span onClick={() => setShowTeamSelection(true)} style={{ cursor: 'pointer', fontSize: '14px', color: '#aaa', background: '#222', padding: '4px 12px', borderRadius: '20px', border: '1px solid #333' }}>
-            {team} <span style={{ fontSize: '10px' }}>▼ 변경</span>
-          </span>
-        )}
-      </div>
-
-      <div>
-        <textarea style={{ width: '100%', height: '200px', background: '#222', color: '#fff', padding: '15px', borderRadius: '15px', border: '2px solid #333', fontSize: '18px', marginBottom: '20px', resize: 'none', outline: 'none' }}
-          placeholder="현장 상황을 말해주이소..." value={memoText} onChange={(e) => setMemoText(e.target.value)} />
-      </div>
-
-      <div style={{ display: 'flex', gap: '15px' }}>
-        <button onClick={toggleListening} style={{ flex: 1, height: '70px', borderRadius: '20px', background: isListening ? '#ef4444' : '#2563eb', border: 'none', color: '#fff' }}>
-          <Mic size={40} className={isListening ? 'animate-pulse' : ''} />
-        </button>
-        <button onClick={handleSendMemo} disabled={!memoText.trim() || isSending} style={{ flex: 1, height: '70px', borderRadius: '20px', background: '#f97316', border: 'none', color: '#fff', fontSize: '20px', fontWeight: '900' }}>
-          {isSending ? <Loader2 className="animate-spin" /> : "단디 전송"}
-        </button>
-      </div>
-
-      <AnimatePresence>
-        {showAIPanel && reportContent && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999999, padding: '20px' }}>
-            <motion.div style={{ background: '#FFFDF0', color: '#111', borderRadius: '20px', width: '100%', maxWidth: '500px', padding: '25px', boxShadow: '0 15px 35px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }}
-              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} onClick={(e) => e.stopPropagation()}>
-              <h2 style={{ fontSize: '20px', fontWeight: '900', borderBottom: '2px solid #222', paddingBottom: '10px', marginBottom: '15px' }}>📋 현장 보고서 결과</h2>
-              <div style={{ fontSize: '15px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
-                {reportContent.공정 && <div style={{ marginBottom: '15px' }}><strong style={{ color: '#E87A30' }}>● 공정:</strong><br />{highlightNumbers(reportContent.공정)}</div>}
-              </div>
-              <button onClick={handleCopy} style={{ width: '100%', marginTop: '15px', padding: '15px', background: '#E87A30', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '18px' }}>📋 복사하기</button>
-              <button onClick={handleResetApp} style={{ width: '100%', marginTop: '10px', background: '#ddd', color: '#333', padding: '15px', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px' }}>닫기 및 새 작업 시작</button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showTeamSelection && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: '#111', zIndex: 200000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-            <motion.h1 initial={{ y: -20 }} animate={{ y: 0 }} style={{ fontSize: '28px', fontWeight: '900', marginBottom: '40px', color: '#facc15', textAlign: 'center' }}>어느 소속이신지<br />선택해주이소</motion.h1>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '400px' }}>
-              {['안전반', '건축반', '환경반'].map((t) => {
-                const icon = t === '안전반' ? '🦺' : t === '건축반' ? '🏗️' : '🌿';
-                return (
-                  <button key={t} onClick={() => handleSelectTeam(t)} style={{ padding: '30px', fontSize: '24px', fontWeight: '900', borderRadius: '20px', backgroundColor: '#222', color: '#fff', border: '3px solid #facc15', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', cursor: 'pointer' }}>
-                    {icon} {t}
-                  </button>
-                );
-              })}
-            </div>
-            <p style={{ marginTop: '30px', color: '#666', fontSize: '14px' }}>※ 한 번 선택하면 기억함다</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <button onClick={() => setShowHistory(true)} style={{ width: '100%', marginTop: '15px', padding: '15px', background: '#1e293b', color: '#94a3b8', border: '1px solid #334155', borderRadius: '20px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
-        📋 나의 메모 기록
-      </button>
-
-      <AnimatePresence>
-        {showHistory && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 999999, padding: '20px', overflowY: 'auto' }}
-            onClick={() => setShowHistory(false)}>
-            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }}
-              style={{ background: '#1e293b', borderRadius: '20px', padding: '20px', maxWidth: '500px', margin: '0 auto' }}
-              onClick={e => e.stopPropagation()}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                <h2 style={{ color: '#facc15', fontSize: '18px', fontWeight: '900' }}>📋 나의 메모 기록</h2>
-                <button onClick={() => setShowHistory(false)} style={{ background: 'none', border: 'none', color: '#aaa', fontSize: '24px', cursor: 'pointer' }}>✕</button>
-              </div>
-              {memoHistory.length === 0 ? (
-                <p style={{ color: '#666', textAlign: 'center', padding: '30px' }}>아직 기록이 없심더</p>
-              ) : (
-                memoHistory.map((record, i) => (
-                  <div key={i} style={{ background: '#0f172a', borderRadius: '12px', padding: '15px', marginBottom: '12px', borderLeft: '3px solid #facc15' }}>
-                    <div style={{ color: '#facc15', fontSize: '12px', fontWeight: 'bold', marginBottom: '8px' }}>
-                      {record.date} · {record.team} · {new Date(record.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}
-                    </div>
-                    <div style={{ color: '#e2e8f0', fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                      {record.content}
-                    </div>
-                  </div>
-                ))
-              )}
-              <button onClick={() => { if (window.confirm('기록을 전부 삭제하겠심니꺼?')) { localStorage.removeItem('myMemoHistory'); setMemoHistory([]); } }}
-                style={{ width: '100%', marginTop: '10px', padding: '10px', background: '#1e293b', color: '#475569', border: '1px solid #334155', borderRadius: '10px', fontSize: '13px', cursor: 'pointer' }}>
-                🗑️ 기록 전체 삭제
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+      <ScanButton onClick={handleScanClick} status={status} isBlocked={isBlocked} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+      {showPaywall && <Paywall onClose={() => setShowPaywall(false)} />}
+      <a href="#" className="back-btn">← 메인으로</a>
     </div>
   );
-};
-
-export default App;
+}
